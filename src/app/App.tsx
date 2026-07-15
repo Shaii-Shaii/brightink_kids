@@ -202,6 +202,66 @@ const VOWEL_PRACTICE = [
   { vowel: "U", sound: "u as in umbrella", emoji: "rain", stars: 0 },
 ]
 
+type TraceStroke = { d: string; label: [number, number] }
+
+const LOWER_TRACE_STROKES: Record<string, TraceStroke[]> = {
+  A: [{ d: "M62 36 C34 36 30 74 55 74 C77 74 78 36 58 36", label: [56, 34] }, { d: "M78 36 L78 74", label: [82, 38] }],
+  B: [{ d: "M36 18 L36 74", label: [30, 20] }, { d: "M36 42 C78 28 82 76 36 70", label: [52, 40] }],
+  C: [{ d: "M74 42 C56 28 28 42 32 62 C36 82 64 80 74 66", label: [70, 40] }],
+  D: [{ d: "M72 18 L72 74", label: [76, 20] }, { d: "M72 40 C36 28 28 76 72 70", label: [60, 38] }],
+  E: [{ d: "M74 44 C54 28 28 40 32 60 C36 78 64 80 76 66", label: [70, 42] }, { d: "M34 58 L74 58", label: [38, 55] }],
+  F: [{ d: "M62 18 C42 18 42 34 42 42 L42 76", label: [58, 16] }, { d: "M30 42 L62 42", label: [30, 39] }],
+  G: [{ d: "M74 42 C56 28 28 42 32 62 C36 82 66 78 74 62 L74 84 C74 96 50 96 44 86", label: [70, 40] }],
+  H: [{ d: "M34 18 L34 74", label: [28, 20] }, { d: "M34 46 C58 28 72 40 72 74", label: [48, 42] }],
+  I: [{ d: "M50 38 L50 74", label: [54, 40] }],
+  J: [{ d: "M58 38 L58 82 C58 98 36 98 34 84", label: [62, 40] }],
+  K: [{ d: "M34 18 L34 74", label: [28, 20] }, { d: "M70 40 L36 58", label: [66, 38] }, { d: "M44 56 L74 74", label: [56, 62] }],
+  L: [{ d: "M50 18 L50 74", label: [54, 20] }],
+  M: [{ d: "M24 44 L24 74", label: [20, 42] }, { d: "M24 48 C36 34 48 34 48 74", label: [34, 42] }, { d: "M48 48 C60 34 74 34 74 74", label: [58, 42] }],
+  N: [{ d: "M30 44 L30 74", label: [26, 42] }, { d: "M30 48 C56 30 72 42 72 74", label: [48, 42] }],
+  O: [{ d: "M50 36 C24 36 24 76 50 76 C76 76 76 36 50 36", label: [58, 34] }],
+  P: [{ d: "M32 42 L32 88", label: [26, 44] }, { d: "M32 42 C72 30 80 70 32 66", label: [52, 40] }],
+  Q: [{ d: "M52 36 C26 36 26 76 52 76 C78 76 78 36 52 36", label: [60, 34] }, { d: "M72 62 L72 90", label: [76, 64] }],
+  R: [{ d: "M34 44 L34 74", label: [30, 42] }, { d: "M34 50 C44 36 58 36 66 46", label: [48, 42] }],
+  S: [{ d: "M72 42 C52 30 30 38 34 54 C38 66 70 58 72 70 C74 84 42 84 30 72", label: [68, 40] }],
+  T: [{ d: "M50 24 L50 74", label: [54, 26] }, { d: "M34 42 L66 42", label: [34, 39] }],
+  U: [{ d: "M30 42 L30 62 C30 82 70 82 70 62 L70 42", label: [26, 44] }],
+  V: [{ d: "M28 42 L50 74", label: [24, 44] }, { d: "M72 42 L50 74", label: [68, 44] }],
+  W: [{ d: "M22 42 L34 74", label: [18, 44] }, { d: "M46 42 L34 74", label: [42, 44] }, { d: "M46 42 L58 74", label: [50, 44] }, { d: "M82 42 L58 74", label: [78, 44] }],
+  X: [{ d: "M30 42 L70 74", label: [26, 44] }, { d: "M70 42 L30 74", label: [66, 44] }],
+  Y: [{ d: "M28 42 L50 74", label: [24, 44] }, { d: "M72 42 L42 92", label: [68, 44] }],
+  Z: [{ d: "M30 42 L72 42 L30 74 L74 74", label: [28, 39] }],
+}
+
+const UPPER_TRACE_STROKES: Record<string, TraceStroke[]> = {
+  A: [{ d: "M30 76 L50 20", label: [26, 74] }, { d: "M70 76 L50 20", label: [66, 74] }, { d: "M38 56 L62 56", label: [39, 52] }],
+  B: [{ d: "M32 20 L32 76", label: [26, 22] }, { d: "M32 20 C74 18 74 48 32 48", label: [50, 18] }, { d: "M32 48 C78 48 78 78 32 76", label: [50, 48] }],
+  C: [{ d: "M76 32 C62 16 28 24 28 50 C28 78 62 84 76 66", label: [72, 30] }],
+  D: [{ d: "M32 20 L32 76", label: [26, 22] }, { d: "M32 20 C78 22 80 74 32 76", label: [52, 20] }],
+  E: [{ d: "M72 20 L32 20 L32 76 L72 76", label: [70, 16] }, { d: "M32 48 L64 48", label: [36, 44] }],
+  F: [{ d: "M32 76 L32 20 L72 20", label: [26, 74] }, { d: "M32 48 L64 48", label: [36, 44] }],
+  G: [{ d: "M76 34 C62 16 28 24 28 52 C28 78 60 84 76 66 L76 54 L58 54", label: [72, 32] }],
+  H: [{ d: "M30 20 L30 76", label: [24, 22] }, { d: "M70 20 L70 76", label: [74, 22] }, { d: "M30 48 L70 48", label: [34, 44] }],
+  I: [{ d: "M50 20 L50 76", label: [54, 22] }],
+  J: [{ d: "M68 20 L68 62 C68 86 30 86 30 62", label: [72, 22] }],
+  K: [{ d: "M32 20 L32 76", label: [26, 22] }, { d: "M72 20 L34 50", label: [68, 22] }, { d: "M42 48 L76 76", label: [48, 48] }],
+  L: [{ d: "M32 20 L32 76 L72 76", label: [26, 22] }],
+  M: [{ d: "M24 76 L24 20 L50 54 L76 20 L76 76", label: [20, 74] }],
+  N: [{ d: "M28 76 L28 20 L72 76 L72 20", label: [24, 74] }],
+  O: [{ d: "M50 20 C22 20 22 76 50 76 C78 76 78 20 50 20", label: [58, 18] }],
+  P: [{ d: "M32 76 L32 20", label: [26, 74] }, { d: "M32 20 C74 18 78 54 32 54", label: [52, 18] }],
+  Q: [{ d: "M50 20 C22 20 22 76 50 76 C78 76 78 20 50 20", label: [58, 18] }, { d: "M58 62 L76 80", label: [62, 64] }],
+  R: [{ d: "M32 76 L32 20", label: [26, 74] }, { d: "M32 20 C74 18 78 54 32 54", label: [52, 18] }, { d: "M46 54 L76 76", label: [50, 56] }],
+  S: [{ d: "M74 30 C54 14 28 24 34 44 C40 62 76 52 72 70 C68 88 38 82 28 70", label: [70, 28] }],
+  T: [{ d: "M24 20 L76 20", label: [24, 16] }, { d: "M50 20 L50 76", label: [54, 22] }],
+  U: [{ d: "M28 20 L28 58 C28 84 72 84 72 58 L72 20", label: [24, 22] }],
+  V: [{ d: "M26 20 L50 76", label: [22, 22] }, { d: "M74 20 L50 76", label: [70, 22] }],
+  W: [{ d: "M18 20 L32 76", label: [14, 22] }, { d: "M46 20 L32 76", label: [42, 22] }, { d: "M46 20 L60 76", label: [50, 22] }, { d: "M84 20 L60 76", label: [80, 22] }],
+  X: [{ d: "M28 20 L72 76", label: [24, 22] }, { d: "M72 20 L28 76", label: [68, 22] }],
+  Y: [{ d: "M28 20 L50 48", label: [24, 22] }, { d: "M72 20 L50 48 L50 76", label: [68, 22] }],
+  Z: [{ d: "M28 20 L72 20 L28 76 L74 76", label: [26, 16] }],
+}
+
 const DEMO_PROFILES: Profile[] = [
   { id: "1", name: "Mia", age: 6, avatar: "owl" },
   { id: "2", name: "Leo", age: 5, avatar: "bear" },
@@ -1742,8 +1802,8 @@ function TracingHomeScreen({ go, setTracingLetter, setTracingLevel }: {
       <div className="flex-1 overflow-y-auto px-5 pb-28">
         {mode === "letters" && (
           <>
-            <div className="rounded-3xl p-4 mb-4 shadow-sm" style={{ background: "white" }}>
-              <p className="font-bold mb-2" style={{ color: PURPLE, ...ffh }}>3 levels for each letter</p>
+            <div className="mb-4">
+              <p className="font-bold mb-2 px-1" style={{ color: PURPLE, ...ffh }}>3 levels for each letter</p>
               <div className="grid grid-cols-3 gap-2 text-center">
                 {[["1", "Watch"], ["2", "Guide"], ["3", "No guide"]].map(([n, label]) => (
                   <div key={n} className="rounded-2xl p-2" style={{ background: `${BLUE}16` }}>
@@ -1918,11 +1978,9 @@ function TracingLetterScreen({ letter, level, go }: { letter: string; level: 1|2
   const [progress, setProgress] = useState(0)
   const isWord = letter.length > 1
   const isUpper = !isWord && letter === letter.toUpperCase()
-  const dotPositions = isUpper
-    ? [{ x: 50, y: 15, n: 1 }, { x: 15, y: 85, n: 2 }, { x: 85, y: 85, n: 3 }, { x: 35, y: 55, n: 4 }, { x: 65, y: 55, n: 5 }]
-    : isWord
-      ? [{ x: 18, y: 60, n: 1 }, { x: 38, y: 60, n: 2 }, { x: 58, y: 60, n: 3 }, { x: 78, y: 60, n: 4 }]
-      : [{ x: 50, y: 10, n: 1 }, { x: 50, y: 90, n: 2 }, { x: 75, y: 25, n: 3 }]
+  const strokes = !isWord ? (isUpper ? UPPER_TRACE_STROKES : LOWER_TRACE_STROKES)[letter.toUpperCase()] ?? [] : []
+  const wordSteps = isWord ? letter.split("").map((_, i) => ({ x: 16 + i * (68 / Math.max(letter.length - 1, 1)), y: 62, n: i + 1 })) : []
+  const totalSteps = Math.max(strokes.length || wordSteps.length, 1)
 
   useEffect(() => {
     if (tracing) {
@@ -1930,11 +1988,11 @@ function TracingLetterScreen({ letter, level, go }: { letter: string; level: 1|2
       const timer = setInterval(() => {
         i++
         setProgress(i)
-        if (i >= dotPositions.length) { clearInterval(timer); setTimeout(() => go("tracingFeedback"), 500) }
+        if (i >= totalSteps) { clearInterval(timer); setTimeout(() => go("tracingFeedback"), 500) }
       }, level === 1 ? 520 : 640)
       return () => clearInterval(timer)
     }
-  }, [tracing, level])
+  }, [tracing, level, totalSteps])
 
   return (
     <div className="flex flex-col h-full" style={{ background: PEACH }}>
@@ -1946,7 +2004,7 @@ function TracingLetterScreen({ letter, level, go }: { letter: string; level: 1|2
       </div>
 
       <div className="px-5 mb-2">
-        <h2 className="text-2xl font-bold" style={{ color: PURPLE, ...ffh }}>{isWord ? "Trace the word" : "Trace the letter"}</h2>
+        <h2 className="text-2xl font-bold" style={{ color: PURPLE, ...ffh }}>{isWord ? `Trace "${letter}"` : `Trace ${letter}`}</h2>
         <p className="text-sm" style={{ color: MUTED, ...ff }}>
           {level === 1 ? "Watch the pink line, then try it." : level === 2 ? "Follow the guide with your finger." : "Try it all by yourself."}
         </p>
@@ -1955,39 +2013,54 @@ function TracingLetterScreen({ letter, level, go }: { letter: string; level: 1|2
       <div className="flex-1 mx-5 flex flex-col items-center justify-center">
         <div className="w-full max-w-xs aspect-square rounded-3xl flex items-center justify-center relative shadow-sm overflow-hidden" style={{ background: "white" }}>
           <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full">
-            {level < 3 && (
-              <text x="50" y={isWord ? "62" : "80"} textAnchor="middle" fontSize={isWord ? "28" : "85"} fontFamily="Fredoka, sans-serif"
-                stroke={`${BLUE}40`} strokeWidth={isWord ? "1.2" : "2"} fill="none" strokeDasharray="5,4">{letter}</text>
+            <defs>
+              <marker id="traceArrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto" markerUnits="strokeWidth">
+                <path d="M0,0 L6,3 L0,6 Z" fill={BLUE}/>
+              </marker>
+              <marker id="traceArrowDone" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto" markerUnits="strokeWidth">
+                <path d="M0,0 L6,3 L0,6 Z" fill={PINK}/>
+              </marker>
+            </defs>
+            <line x1="15" y1="20" x2="85" y2="20" stroke="#D8D1DC" strokeWidth="0.8"/>
+            <line x1="15" y1="48" x2="85" y2="48" stroke="#D8D1DC" strokeWidth="0.8" strokeDasharray="4 4"/>
+            <line x1="15" y1="76" x2="85" y2="76" stroke="#D8D1DC" strokeWidth="0.8"/>
+
+            {isWord && level < 3 && (
+              <text x="50" y="62" textAnchor="middle" fontSize="28" fontFamily="Fredoka, sans-serif"
+                stroke={`${BLUE}40`} strokeWidth="1.2" fill="none" strokeDasharray="5,4">{letter}</text>
             )}
-            {(tracing || level === 1) && (
-              <text x="50" y={isWord ? "62" : "80"} textAnchor="middle" fontSize={isWord ? "28" : "85"} fontFamily="Fredoka, sans-serif"
-                stroke={PINK} strokeWidth={isWord ? "1.5" : "2.5"} fill={`${PINK}15`} strokeDasharray="5,4"
-                style={{ clipPath: `inset(0 ${100-(progress/dotPositions.length)*100}% 0 0)` }}>
-                {letter}
-              </text>
-            )}
+
+            {!isWord && level < 3 && strokes.map((stroke, i) => {
+              const done = progress > i
+              const active = tracing && progress === i
+              return (
+                <g key={`${letter}-${i}`}>
+                  <path d={stroke.d} fill="none" stroke={done || active ? PINK : BLUE} strokeWidth={done || active ? 4 : 3}
+                    strokeLinecap="round" strokeLinejoin="round" strokeDasharray={done || active ? "none" : "6 5"}
+                    opacity={done || active ? 0.95 : 0.42} markerEnd={`url(#${done || active ? "traceArrowDone" : "traceArrow"})`}/>
+                  {level === 1 && (
+                    <g>
+                      <circle cx={stroke.label[0]} cy={stroke.label[1]} r="5" fill={done || active ? PINK : "white"} stroke={done || active ? PINK : BLUE} strokeWidth="1.5"/>
+                      <text x={stroke.label[0]} y={stroke.label[1] + 3} textAnchor="middle" fontSize="7" fontWeight="700" fill={done || active ? "white" : BLUE}>{i + 1}</text>
+                    </g>
+                  )}
+                </g>
+              )
+            })}
+
+            {isWord && level < 3 && wordSteps.map((step, i) => (
+              <g key={`${letter}-${i}`}>
+                <circle cx={step.x} cy={step.y} r="4.5" fill={progress > i ? PINK : "white"} stroke={progress > i ? PINK : BLUE} strokeWidth="1.4"/>
+                {level === 1 && <text x={step.x} y={step.y + 2.8} textAnchor="middle" fontSize="6.5" fontWeight="700" fill={progress > i ? "white" : BLUE}>{step.n}</text>}
+              </g>
+            ))}
           </svg>
 
-          {level < 3 && dotPositions.map(dot => (
-            <div key={dot.n} className="absolute w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shadow-sm transition-all"
-              style={{
-                left: `${dot.x}%`, top: `${dot.y}%`,
-                transform: "translate(-50%,-50%)",
-                background: progress >= dot.n ? GREEN : BLUE,
-                color: "white", ...ff,
-                scale: progress === dot.n ? "1.2" : "1",
-              }}>
-              {level === 1 ? dot.n : ""}
-            </div>
-          ))}
-
-          {level === 3 && (
-            <p className={`${isWord ? "text-4xl" : "text-7xl"} font-bold opacity-20`} style={{ color: PURPLE, ...ffh }}>{letter}</p>
-          )}
+          {level === 3 && <div className="w-20 h-20 rounded-full border-2 border-dashed opacity-30" style={{ borderColor: BLUE }}/>}
         </div>
 
         <p className="text-xs mt-3 text-center" style={{ color: MUTED, ...ff }}>
-          {tracing ? `Tracing step ${Math.min(progress+1, dotPositions.length)} of ${dotPositions.length}` : level === 3 ? "Tap START and write it from memory." : "Tap START and follow the guide."}
+          {tracing ? `Tracing step ${Math.min(progress+1, totalSteps)} of ${totalSteps}` : level === 3 ? "Tap START and write it from memory." : "Tap START and follow the arrows."}
         </p>
       </div>
 
@@ -1998,7 +2071,7 @@ function TracingLetterScreen({ letter, level, go }: { letter: string; level: 1|2
           </PrimaryBtn>
         ) : (
           <div className="h-2 rounded-full" style={{ background: "#E0EEF8" }}>
-            <motion.div className="h-full rounded-full" animate={{ width: `${(progress/dotPositions.length)*100}%` }} style={{ background: BLUE }}/>
+            <motion.div className="h-full rounded-full" animate={{ width: `${(progress/totalSteps)*100}%` }} style={{ background: BLUE }}/>
           </div>
         )}
       </div>
