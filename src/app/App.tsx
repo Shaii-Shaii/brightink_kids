@@ -1061,7 +1061,7 @@ function StoryWritingScreen({ go, theme }: { go: (s: Screen) => void; theme: str
       <motion.button
         onClick={() => setChatOpen(true)}
         whileTap={{ scale: 0.94 }}
-        className="absolute right-5 bottom-24 w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg"
+        className="absolute right-5 bottom-24 w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg opacity-55 hover:opacity-100 focus-visible:opacity-100 active:opacity-100 transition-opacity"
         style={{ background: PINK, color: "white" }}
         aria-label="Open AI writing helper"
       >
