@@ -7,7 +7,8 @@ import {
   ChevronLeft, RotateCcw, Volume2, Settings, X,
   Trophy, Flame, BarChart2, Lock, Play, Sparkles,
   Bookmark, Heart, Zap, Bell, User, Shield, HelpCircle,
-  Type, WifiOff, Loader2, Trash2, Bot, Send,
+  Type, WifiOff, Loader2, Trash2, Bot, Send, Camera,
+  ImagePlus, Upload,
 } from "lucide-react"
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip,
@@ -987,6 +988,9 @@ function StoryWritingScreen({ go, theme }: { go: (s: Screen) => void; theme: str
   const [activeSugg, setActiveSugg] = useState<string|null>(null)
   const [chatOpen, setChatOpen] = useState(false)
   const [chatInput, setChatInput] = useState("")
+  const [photoPanel, setPhotoPanel] = useState<string|null>(null)
+  const uploadInputRef = useRef<HTMLInputElement|null>(null)
+  const cameraInputRef = useRef<HTMLInputElement|null>(null)
   const [chatMessages, setChatMessages] = useState([
     { from: "bot" as const, text: "Hi! I can help you think of what happens next." },
   ])
@@ -1010,6 +1014,16 @@ function StoryWritingScreen({ go, theme }: { go: (s: Screen) => void; theme: str
   const addBotIdeaToStory = () => {
     const lastBotIdea = [...chatMessages].reverse().find(m => m.from === "bot")?.text
     if (lastBotIdea) setText(prev => prev ? `${prev} ${lastBotIdea}` : lastBotIdea)
+  }
+  const handlePhotoPick = (file?: File) => {
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => setPhotoPanel(typeof reader.result === "string" ? reader.result : null)
+    reader.readAsDataURL(file)
+  }
+  const addPhotoPrompt = () => {
+    const prompt = "In my picture, I see something special. It made the story begin when..."
+    setText(prev => prev ? `${prev} ${prompt}` : prompt)
   }
 
   return (
@@ -1037,6 +1051,59 @@ function StoryWritingScreen({ go, theme }: { go: (s: Screen) => void; theme: str
             <span className="text-sm leading-snug" style={{ color: PURPLE, ...ff }}>{s}</span>
           </button>
         ))}
+      </div>
+
+      <div className="px-5 mb-3">
+        <div className="rounded-2xl p-3 shadow-sm" style={{ background: "white", border: `1.5px solid ${PINK}35` }}>
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: `${PINK}18` }}>
+              <ImagePlus size={20} style={{ color: PINK }}/>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-bold text-sm" style={{ color: PURPLE, ...ffh }}>Story Picture</p>
+              <p className="text-xs truncate" style={{ color: MUTED, ...ff }}>Add a photo for an illustrated panel.</p>
+            </div>
+          </div>
+
+          {photoPanel ? (
+            <div className="relative overflow-hidden rounded-2xl">
+              <img src={photoPanel} alt="Story panel reference" className="w-full h-36 object-cover"/>
+              <div className="absolute inset-x-0 bottom-0 p-2 flex gap-2" style={{ background: "linear-gradient(transparent, rgba(61,43,78,0.55))" }}>
+                <button onClick={addPhotoPrompt} className="flex-1 rounded-xl py-2 text-xs font-bold" style={{ background: "white", color: PINK, ...ff }}>
+                  Use for story idea
+                </button>
+                <button onClick={() => setPhotoPanel(null)} className="px-3 rounded-xl text-xs font-bold" style={{ background: `${PINK}E6`, color: "white", ...ff }}>
+                  Remove
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-2">
+              <button onClick={() => uploadInputRef.current?.click()} className="rounded-2xl py-3 flex items-center justify-center gap-2 font-bold text-sm" style={{ background: `${BLUE}20`, color: BLUE, ...ff }}>
+                <Upload size={16}/> Upload
+              </button>
+              <button onClick={() => cameraInputRef.current?.click()} className="rounded-2xl py-3 flex items-center justify-center gap-2 font-bold text-sm" style={{ background: `${PINK}18`, color: PINK, ...ff }}>
+                <Camera size={16}/> Capture
+              </button>
+            </div>
+          )}
+
+          <input
+            ref={uploadInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={e => handlePhotoPick(e.target.files?.[0])}
+          />
+          <input
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={e => handlePhotoPick(e.target.files?.[0])}
+          />
+        </div>
       </div>
 
       {/* Text area */}
