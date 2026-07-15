@@ -466,12 +466,20 @@ function Ring({ pct, color, size = 60, label }: { pct: number; color: string; si
 
 function ScreenHeader({ title, subtitle, go, backTo = "home" }: { title: string; subtitle?: string; go: (s: Screen) => void; backTo?: Screen }) {
   return (
-    <div className="px-5 pt-6 pb-3 flex items-center gap-3">
-      <BackBtn onClick={() => go(backTo)}/>
-      <div>
-        <h2 className="text-2xl font-bold" style={{ color: PURPLE, ...ffh }}>{title}</h2>
-        {subtitle && <p className="text-xs" style={{ color: MUTED, ...ff }}>{subtitle}</p>}
+    <div className="px-5 pt-6 pb-4 grid grid-cols-[44px_1fr_44px] items-center">
+      <button
+        onClick={() => go(backTo)}
+        aria-label="Go back"
+        className="w-11 h-11 rounded-2xl flex items-center justify-center transition-all active:scale-95"
+        style={{ background: "rgba(255,255,255,0.7)", color: MUTED }}
+      >
+        <ArrowLeft size={20}/>
+      </button>
+      <div className="min-w-0 text-center px-2">
+        <h2 className="text-xl font-bold leading-tight truncate" style={{ color: PURPLE, ...ffh }}>{title}</h2>
+        {subtitle && <p className="text-xs leading-tight mt-0.5 truncate" style={{ color: MUTED, ...ff }}>{subtitle}</p>}
       </div>
+      <div aria-hidden/>
     </div>
   )
 }
