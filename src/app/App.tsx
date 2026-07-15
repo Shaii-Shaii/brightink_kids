@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 import type { ComponentType, CSSProperties } from "react"
+import { createPortal } from "react-dom"
 import { motion } from "motion/react"
 import {
   Eye, EyeOff, ArrowRight, ArrowLeft, Plus, Check,
@@ -408,13 +409,15 @@ const NAV_TABS = [
 type NavTab = typeof NAV_TABS[number]["id"]
 
 function BottomNav({ active, go }: { active: NavTab; go: (s: Screen) => void }) {
-  return (
+  const nav = (
     <div
-      className="fixed inset-x-0 bottom-0 z-[9999] flex items-center border-t shadow-[0_-8px_24px_rgba(61,43,78,0.08)]"
+      className="fixed inset-x-0 bottom-0 z-[2147483647] flex items-center border-t shadow-[0_-8px_24px_rgba(61,43,78,0.08)]"
       style={{
         background: "white",
         borderColor: "rgba(255,132,186,0.15)",
         paddingBottom: "env(safe-area-inset-bottom)",
+        transform: "translateZ(0)",
+        pointerEvents: "auto",
       }}
     >
       {NAV_TABS.map(({ id, label, icon: Icon }) => {
@@ -431,6 +434,8 @@ function BottomNav({ active, go }: { active: NavTab; go: (s: Screen) => void }) 
       })}
     </div>
   )
+
+  return createPortal(nav, document.body)
 }
 
 // ─── Story Cover Card ─────────────────────────────────────────────────────────
