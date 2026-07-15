@@ -2031,6 +2031,7 @@ function TracingLetterScreen({ letter, level, go }: { letter: string; level: 1|2
   const [drawing, setDrawing] = useState(false)
   const [drawPaths, setDrawPaths] = useState<string[]>([])
   const [currentPath, setCurrentPath] = useState("")
+  const currentPathRef = useRef("")
   const isWord = letter.length > 1
   const isUpper = !isWord && letter === letter.toUpperCase()
   const strokes = !isWord ? (isUpper ? UPPER_TRACE_STROKES : LOWER_TRACE_STROKES)[letter.toUpperCase()] ?? [] : []
@@ -2061,18 +2062,27 @@ function TracingLetterScreen({ letter, level, go }: { letter: string; level: 1|2
   }
   const startDrawing = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (!tracing) return
-    e.currentTarget.setPointerCapture(e.pointerId)
+    try {
+      e.currentTarget.setPointerCapture?.(e.pointerId)
+    } catch {
+      // Some embedded mobile webviews are strict about pointer capture. Drawing still works without it.
+    }
     setDrawing(true)
-    setCurrentPath(`M ${pointerPoint(e)}`)
+    const path = `M ${pointerPoint(e)}`
+    currentPathRef.current = path
+    setCurrentPath(path)
   }
   const moveDrawing = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (!drawing || !tracing) return
-    setCurrentPath(path => `${path} L ${pointerPoint(e)}`)
+    const nextPath = `${currentPathRef.current} L ${pointerPoint(e)}`
+    currentPathRef.current = nextPath
+    setCurrentPath(nextPath)
   }
   const endDrawing = () => {
     if (!drawing) return
     setDrawing(false)
-    if (currentPath) setDrawPaths(paths => [...paths, currentPath])
+    if (currentPathRef.current) setDrawPaths(paths => [...paths, currentPathRef.current])
+    currentPathRef.current = ""
     setCurrentPath("")
   }
 
@@ -2081,7 +2091,7 @@ function TracingLetterScreen({ letter, level, go }: { letter: string; level: 1|2
       <div className="flex items-center justify-between px-5 pt-6 pb-2">
         <BackBtn onClick={() => go("tracingHome")}/>
         <div className="px-3 py-1.5 rounded-full font-bold text-sm" style={{ background: `${BLUE}20`, color: BLUE, ...ff }}>
-          Level {level}
+          Stage {level}
         </div>
       </div>
 
@@ -2090,6 +2100,19 @@ function TracingLetterScreen({ letter, level, go }: { letter: string; level: 1|2
         <p className="text-sm" style={{ color: MUTED, ...ff }}>
           {level === 1 ? "Watch the pink line, then try it." : level === 2 ? "Follow the guide with your finger." : "Try it all by yourself."}
         </p>
+        <div className="grid grid-cols-3 gap-2 mt-3">
+          {[
+            { id: 1, label: "Arrows" },
+            { id: 2, label: "Guide" },
+            { id: 3, label: "Blank" },
+          ].map(stage => (
+            <div key={stage.id} className="rounded-2xl py-2 text-center"
+              style={{ background: level === stage.id ? BLUE : "white", border: `1.5px solid ${level === stage.id ? BLUE : "rgba(153,194,255,0.28)"}` }}>
+              <p className="text-xs font-bold" style={{ color: level === stage.id ? "white" : BLUE, ...ffh }}>Stage {stage.id}</p>
+              <p className="text-[10px]" style={{ color: level === stage.id ? "white" : MUTED, ...ff }}>{stage.label}</p>
+            </div>
+          ))}
+        </div>
       </div>
 
       <div className="flex-1 mx-5 flex flex-col items-center justify-center">
@@ -2100,6 +2123,7 @@ function TracingLetterScreen({ letter, level, go }: { letter: string; level: 1|2
           onPointerMove={moveDrawing}
           onPointerUp={endDrawing}
           onPointerCancel={endDrawing}
+          onPointerLeave={endDrawing}
         >
           <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full">
             <line x1="15" y1="20" x2="85" y2="20" stroke="#D8D1DC" strokeWidth="0.8"/>
@@ -2173,7 +2197,7 @@ function TracingLetterScreen({ letter, level, go }: { letter: string; level: 1|2
 
       <div className="px-5 pb-6">
         {!tracing ? (
-          <PrimaryBtn color={BLUE} onClick={() => { setTracing(true); setProgress(0); setDrawPaths([]); setCurrentPath("") }}>
+          <PrimaryBtn color={BLUE} onClick={() => { setTracing(true); setProgress(0); setDrawPaths([]); setCurrentPath(""); currentPathRef.current = "" }}>
             <PenLine size={18}/> Start
           </PrimaryBtn>
         ) : (
@@ -2181,7 +2205,7 @@ function TracingLetterScreen({ letter, level, go }: { letter: string; level: 1|2
             <PrimaryBtn color={BLUE} disabled={drawPaths.length === 0 && !currentPath} onClick={() => go("tracingFeedback")}>
               Done <Check size={18}/>
             </PrimaryBtn>
-            <button onClick={() => { setDrawPaths([]); setCurrentPath(""); setProgress(0) }} className="w-full py-2 text-sm font-bold" style={{ color: MUTED, ...ff }}>
+            <button onClick={() => { setDrawPaths([]); setCurrentPath(""); currentPathRef.current = ""; setProgress(0) }} className="w-full py-2 text-sm font-bold" style={{ color: MUTED, ...ff }}>
               Clear and try again
             </button>
             {level === 1 && (
