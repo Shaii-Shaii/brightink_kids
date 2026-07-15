@@ -2166,6 +2166,12 @@ function TracingLetterScreen({ letter, level, go }: { letter: string; level: 1|2
     const maxY = Math.max(...points.map(p => p.y))
     if ((maxX - minX) < 10 || (maxY - minY) < 16) return false
 
+    const strokeCount = paths.length
+    const inBox = (x1: number, y1: number, x2: number, y2: number) =>
+      points.filter(point => point.x >= x1 && point.x <= x2 && point.y >= y1 && point.y <= y2).length / points.length
+    const hasZone = (x1: number, y1: number, x2: number, y2: number, ratio = 0.08) => inBox(x1, y1, x2, y2) >= ratio
+    const upperLetter = letter.toUpperCase()
+
     if (isWord) {
       const expectedLeft = 18
       const expectedRight = 82
@@ -2193,7 +2199,49 @@ function TracingLetterScreen({ letter, level, go }: { letter: string; level: 1|2
     const covered = guidePoints.filter(([x, y]) =>
       points.some(point => Math.hypot(point.x - x, point.y - y) <= 16)
     ).length
-    return guideRatio >= 0.35 && covered / Math.max(guidePoints.length, 1) >= 0.45
+    const guideCoverage = covered / Math.max(guidePoints.length, 1)
+
+    const shapeChecks: Record<string, () => boolean> = {
+      A: () => hasZone(24, 58, 40, 82) && hasZone(60, 58, 76, 82) && hasZone(38, 45, 64, 62),
+      B: () => hasZone(25, 18, 42, 80) && hasZone(42, 18, 78, 50) && hasZone(42, 46, 80, 80),
+      C: () => {
+        const leftArc = hasZone(20, 28, 46, 74, 0.18)
+        const topArc = hasZone(34, 14, 78, 42, 0.12)
+        const bottomArc = hasZone(34, 60, 78, 86, 0.12)
+        const rightMiddle = inBox(58, 38, 82, 62)
+        return leftArc && topArc && bottomArc && rightMiddle < 0.22 && strokeCount <= 2
+      },
+      D: () => hasZone(25, 18, 42, 80) && hasZone(46, 24, 82, 72) && strokeCount <= 3,
+      E: () => hasZone(25, 18, 44, 80) && hasZone(40, 14, 78, 30) && hasZone(38, 42, 70, 56) && hasZone(40, 68, 78, 82),
+      F: () => hasZone(25, 18, 44, 80) && hasZone(40, 14, 78, 30) && hasZone(38, 42, 70, 56) && !hasZone(46, 66, 80, 82, 0.1),
+      G: () => hasZone(20, 28, 46, 74, 0.15) && hasZone(56, 50, 82, 68, 0.08),
+      H: () => hasZone(24, 18, 42, 80) && hasZone(58, 18, 76, 80) && hasZone(34, 42, 66, 58),
+      I: () => {
+        const centerLinePoints = points.filter(point => point.y > 25 && point.y < 72 && Math.abs(point.x - 50) <= 8)
+        const ySpread = centerLinePoints.length ? Math.max(...centerLinePoints.map(p => p.y)) - Math.min(...centerLinePoints.map(p => p.y)) : 0
+        return centerLinePoints.length >= 5 && ySpread >= 30 && (maxX - minX) < 28
+      },
+      J: () => hasZone(58, 18, 76, 66) && hasZone(28, 58, 68, 86),
+      K: () => hasZone(24, 18, 42, 80) && hasZone(42, 18, 78, 54) && hasZone(42, 48, 82, 82),
+      L: () => hasZone(24, 18, 42, 80) && hasZone(36, 66, 78, 84),
+      M: () => hasZone(18, 18, 36, 82) && hasZone(64, 18, 82, 82) && hasZone(34, 28, 66, 62),
+      N: () => hasZone(20, 18, 38, 82) && hasZone(62, 18, 80, 82) && hasZone(34, 28, 66, 72),
+      O: () => hasZone(22, 24, 42, 74) && hasZone(58, 24, 78, 74) && hasZone(36, 16, 66, 36) && hasZone(36, 64, 66, 84),
+      P: () => hasZone(24, 18, 42, 82) && hasZone(42, 18, 80, 56) && !hasZone(46, 58, 82, 84, 0.12),
+      Q: () => hasZone(22, 24, 42, 74) && hasZone(58, 24, 78, 74) && hasZone(56, 58, 84, 86),
+      R: () => hasZone(24, 18, 42, 82) && hasZone(42, 18, 80, 56) && hasZone(44, 54, 82, 84),
+      S: () => hasZone(34, 16, 78, 44) && hasZone(22, 38, 78, 62) && hasZone(22, 58, 66, 86),
+      T: () => hasZone(24, 14, 78, 32) && hasZone(42, 20, 60, 82),
+      U: () => hasZone(22, 18, 40, 66) && hasZone(60, 18, 78, 66) && hasZone(34, 58, 66, 86),
+      V: () => hasZone(20, 18, 42, 60) && hasZone(58, 18, 80, 60) && hasZone(38, 58, 62, 84),
+      W: () => hasZone(14, 18, 30, 70) && hasZone(72, 18, 88, 70) && hasZone(28, 50, 64, 84),
+      X: () => hasZone(24, 18, 44, 44) && hasZone(56, 18, 76, 44) && hasZone(24, 56, 44, 82) && hasZone(56, 56, 76, 82),
+      Y: () => hasZone(24, 18, 48, 52) && hasZone(52, 18, 76, 52) && hasZone(42, 48, 60, 82),
+      Z: () => hasZone(24, 14, 78, 32) && hasZone(24, 66, 80, 84) && hasZone(34, 30, 70, 70),
+    }
+
+    const shapePass = shapeChecks[upperLetter]?.() ?? true
+    return shapePass && guideRatio >= 0.32 && guideCoverage >= 0.4
   }
   const finishTracing = () => {
     const activePath = currentPathRef.current || currentPath
