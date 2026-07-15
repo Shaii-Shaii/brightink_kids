@@ -409,20 +409,30 @@ type NavTab = typeof NAV_TABS[number]["id"]
 
 function BottomNav({ active, go }: { active: NavTab; go: (s: Screen) => void }) {
   return (
-    <div className="flex items-center border-t" style={{ background: "white", borderColor: "rgba(255,132,186,0.15)" }}>
-      {NAV_TABS.map(({ id, label, icon: Icon }) => {
-        const isActive = active === id
-        return (
-          <button key={id} onClick={() => go(id as Screen)} className="flex-1 flex flex-col items-center gap-1 py-3 transition-all active:scale-95">
-            <div className={`w-9 h-9 rounded-2xl flex items-center justify-center ${isActive ? "shadow-sm" : ""}`}
-              style={{ background: isActive ? PINK : "transparent" }}>
-              <Icon size={18} color={isActive ? "white" : MUTED}/>
-            </div>
-            <span className="text-xs font-bold" style={{ color: isActive ? PINK : MUTED, ...ff }}>{label}</span>
-          </button>
-        )
-      })}
-    </div>
+    <>
+      <div aria-hidden className="h-20 flex-shrink-0" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}/>
+      <div
+        className="fixed inset-x-0 bottom-0 z-[9999] flex items-center border-t shadow-[0_-8px_24px_rgba(61,43,78,0.08)]"
+        style={{
+          background: "white",
+          borderColor: "rgba(255,132,186,0.15)",
+          paddingBottom: "env(safe-area-inset-bottom)",
+        }}
+      >
+        {NAV_TABS.map(({ id, label, icon: Icon }) => {
+          const isActive = active === id
+          return (
+            <button key={id} onClick={() => go(id as Screen)} className="flex-1 flex flex-col items-center gap-1 py-3 transition-all active:scale-95">
+              <div className={`w-9 h-9 rounded-2xl flex items-center justify-center ${isActive ? "shadow-sm" : ""}`}
+                style={{ background: isActive ? PINK : "transparent" }}>
+                <Icon size={18} color={isActive ? "white" : MUTED}/>
+              </div>
+              <span className="text-xs font-bold" style={{ color: isActive ? PINK : MUTED, ...ff }}>{label}</span>
+            </button>
+          )
+        })}
+      </div>
+    </>
   )
 }
 
