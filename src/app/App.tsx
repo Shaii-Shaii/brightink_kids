@@ -204,6 +204,16 @@ const VOWEL_PRACTICE = [
 
 type TraceStroke = { d: string; label: [number, number] }
 
+function strokeArrowPosition(stroke: TraceStroke) {
+  const match = stroke.d.match(/M\s*([\d.]+)\s+([\d.]+)\s*(?:[CL]\s*([\d.]+)\s+([\d.]+))?/)
+  const x1 = Number(match?.[1] ?? stroke.label[0])
+  const y1 = Number(match?.[2] ?? stroke.label[1])
+  const x2 = Number(match?.[3] ?? stroke.label[0])
+  const y2 = Number(match?.[4] ?? stroke.label[1] + 12)
+  const angle = Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI
+  return { x: stroke.label[0] + 9, y: stroke.label[1] - 2, angle }
+}
+
 const LOWER_TRACE_STROKES: Record<string, TraceStroke[]> = {
   A: [{ d: "M62 36 C34 36 30 74 55 74 C77 74 78 36 58 36", label: [56, 34] }, { d: "M78 36 L78 74", label: [82, 38] }],
   B: [{ d: "M36 18 L36 74", label: [30, 20] }, { d: "M36 42 C78 28 82 76 36 70", label: [52, 40] }],
@@ -2085,6 +2095,15 @@ function TracingLetterScreen({ letter, level, go }: { letter: string; level: 1|2
                     <g>
                       <circle cx={stroke.label[0]} cy={stroke.label[1]} r="5" fill={done || active ? PINK : "white"} stroke={done || active ? PINK : BLUE} strokeWidth="1.5"/>
                       <text x={stroke.label[0]} y={stroke.label[1] + 3} textAnchor="middle" fontSize="7" fontWeight="700" fill={done || active ? "white" : BLUE}>{i + 1}</text>
+                      {(() => {
+                        const arrow = strokeArrowPosition(stroke)
+                        return (
+                          <g transform={`translate(${arrow.x} ${arrow.y}) rotate(${arrow.angle})`}>
+                            <path d="M-4 0 L5 0" stroke={done || active ? PINK : BLUE} strokeWidth="2" strokeLinecap="round"/>
+                            <path d="M1 -4 L5 0 L1 4" fill="none" stroke={done || active ? PINK : BLUE} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          </g>
+                        )
+                      })()}
                     </g>
                   )}
                 </g>
@@ -2095,6 +2114,12 @@ function TracingLetterScreen({ letter, level, go }: { letter: string; level: 1|2
               <g key={`${letter}-${i}`}>
                 <circle cx={step.x} cy={step.y} r="4.5" fill={progress > i ? PINK : "white"} stroke={progress > i ? PINK : BLUE} strokeWidth="1.4"/>
                 {level === 1 && <text x={step.x} y={step.y + 2.8} textAnchor="middle" fontSize="6.5" fontWeight="700" fill={progress > i ? "white" : BLUE}>{step.n}</text>}
+                {level === 1 && (
+                  <g transform={`translate(${step.x + 8} ${step.y - 1})`}>
+                    <path d="M-4 0 L5 0" stroke={progress > i ? PINK : BLUE} strokeWidth="2" strokeLinecap="round"/>
+                    <path d="M1 -4 L5 0 L1 4" fill="none" stroke={progress > i ? PINK : BLUE} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </g>
+                )}
               </g>
             ))}
           </svg>
