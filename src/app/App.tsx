@@ -1184,6 +1184,7 @@ function StorySavedScreen({ go }: { go: (s: Screen) => void }) {
 // ─── READING ──────────────────────────────────────────────────────────────────
 function StoryLibraryScreen({ stories, go, setCurrentStory }: { stories: Story[]; go: (s: Screen) => void; setCurrentStory: (s: Story) => void }) {
   const [tab, setTab] = useState<"mine"|"curated">("mine")
+  const [view, setView] = useState<"grid"|"list">("grid")
   const displayStories = tab === "mine" ? stories.filter(s => !s.curated) : CURATED_STORIES
 
   return (
@@ -1202,6 +1203,14 @@ function StoryLibraryScreen({ stories, go, setCurrentStory }: { stories: Story[]
             {t === "mine" ? "My Stories" : "★ Curated"}
           </button>
         ))}
+        <div className="ml-auto flex rounded-full p-1" style={{ background: "white" }}>
+          {(["grid","list"] as const).map(v => (
+            <button key={v} onClick={() => setView(v)} className="px-3 py-1 rounded-full text-xs font-bold"
+              style={{ background: view === v ? BLUE : "transparent", color: view === v ? "white" : MUTED, ...ff }}>
+              {v === "grid" ? "Grid" : "List"}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto px-5 pb-4">
@@ -1212,10 +1221,24 @@ function StoryLibraryScreen({ stories, go, setCurrentStory }: { stories: Story[]
             <p className="text-sm text-center" style={{ color: MUTED, ...ff }}>Tap "Create Story" on the home screen to write your first one.</p>
             <PrimaryBtn onClick={() => go("storyTheme")} className="!w-auto px-6">Write a Story <ArrowRight size={18}/></PrimaryBtn>
           </div>
-        ) : (
+        ) : view === "grid" ? (
           <div className="grid grid-cols-2 gap-3">
             {displayStories.map(s => (
               <StoryCover key={s.id} story={s} onClick={() => { setCurrentStory(s); go("storyDetail") }}/>
+            ))}
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2.5">
+            {displayStories.map(s => (
+              <button key={s.id} onClick={() => { setCurrentStory(s); go("storyDetail") }}
+                className="rounded-2xl p-3 flex items-center gap-3 text-left shadow-sm active:scale-[0.98] transition-all" style={{ background: "white" }}>
+                <div className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl flex-shrink-0" style={{ background: s.coverColor }}>{s.emoji}</div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold truncate" style={{ color: PURPLE, ...ffh }}>{s.title}</p>
+                  <p className="text-xs" style={{ color: MUTED, ...ff }}>{s.readTime} · {s.curated ? "Curated" : "My story"}</p>
+                </div>
+                <ChevronRight size={16} style={{ color: MUTED }}/>
+              </button>
             ))}
           </div>
         )}
@@ -1677,7 +1700,7 @@ function ActivityIntroScreen({ story, go }: { story: Story|null; go: (s: Screen)
   )
 }
 
-function ActivityScreen({ story, go }: { story: Story|null; go: (s: Screen) => void }) {
+function ActivityScreen({ story, go, onComplete }: { story: Story|null; go: (s: Screen) => void; onComplete: (scores: boolean[]) => void }) {
   const s = story ?? CURATED_STORIES[0]
   const [qIdx, setQIdx] = useState(0)
   const [selected, setSelected] = useState<number|null>(null)
@@ -1691,10 +1714,12 @@ function ActivityScreen({ story, go }: { story: Story|null; go: (s: Screen) => v
     setAnswered(true)
     const correct = i === q.correct
     setTimeout(() => {
-      setScores(prev => [...prev, correct])
+      const nextScores = [...scores, correct]
+      setScores(nextScores)
       if (qIdx < STORY_QUESTIONS.length - 1) {
         setQIdx(n => n+1); setSelected(null); setAnswered(false)
       } else {
+        onComplete(nextScores)
         go("activityResults")
       }
     }, 900)
@@ -2008,6 +2033,31 @@ function ParentDashboardScreen({ profiles, go }: { profiles: Profile[]; go: (s: 
 
 // ─── APP ──────────────────────────────────────────────────────────────────────
 function SettingsHomeScreen({ go }: { go: (s: Screen) => void }) {
+  const [answer, setAnswer] = useState("")
+  const [unlocked, setUnlocked] = useState(false)
+  if (!unlocked) {
+    return (
+      <div className="flex flex-col h-full" style={{ background: PEACH }}>
+        <ScreenHeader title="Parent Check" subtitle="Settings are for grown-ups" go={go}/>
+        <div className="flex-1 px-6 flex flex-col items-center justify-center text-center pb-10">
+          <div className="w-20 h-20 rounded-3xl flex items-center justify-center mb-5 shadow-sm" style={{ background: "white" }}>
+            <Lock size={32} style={{ color: PINK }}/>
+          </div>
+          <h2 className="text-2xl font-bold mb-2" style={{ color: PURPLE, ...ffh }}>Quick parent check</h2>
+          <p className="text-sm mb-6" style={{ color: MUTED, ...ff }}>What is 4 + 3?</p>
+          <input
+            value={answer}
+            onChange={e => setAnswer(e.target.value.replace(/\D/g, "").slice(0, 2))}
+            inputMode="numeric"
+            className="w-28 rounded-2xl px-4 py-3 text-center text-2xl font-bold outline-none mb-4"
+            style={{ background: "white", color: PURPLE, ...ffh }}
+          />
+          <PrimaryBtn onClick={() => setUnlocked(answer === "7")} disabled={answer !== "7"}>Unlock Settings</PrimaryBtn>
+          <button onClick={() => go("home")} className="mt-4 text-sm font-bold" style={{ color: MUTED, ...ff }}>Back to Home</button>
+        </div>
+      </div>
+    )
+  }
   return (
     <div className="flex flex-col h-full" style={{ background: PEACH }}>
       <ScreenHeader title="Settings" subtitle="Parent-gated app controls" go={go}/>
@@ -2016,7 +2066,7 @@ function SettingsHomeScreen({ go }: { go: (s: Screen) => void }) {
           <Lock size={20} style={{ color: PURPLE }}/>
           <div>
             <p className="font-bold text-sm" style={{ color: PURPLE, ...ffh }}>Parent area</p>
-            <p className="text-xs" style={{ color: MUTED, ...ff }}>Use a PIN or quick math check before showing these settings in production.</p>
+            <p className="text-xs" style={{ color: MUTED, ...ff }}>Unlocked after a quick parent check.</p>
           </div>
         </div>
         <SettingsRow icon={BarChart2} title="Parent Dashboard" subtitle="Detailed learning analytics and recommendations" color={BLUE} onClick={() => go("parentDashboard")}/>
@@ -2049,14 +2099,17 @@ function SettingsHomeScreen({ go }: { go: (s: Screen) => void }) {
 }
 
 function AccountSettingsScreen({ go }: { go: (s: Screen) => void }) {
+  const [name, setName] = useState("Parent Guardian")
+  const [email, setEmail] = useState("parent@example.com")
+  const [saved, setSaved] = useState(false)
   return (
     <div className="flex flex-col h-full" style={{ background: PEACH }}>
       <ScreenHeader title="Account" subtitle="Parent sign-in details" go={go} backTo="settingsHome"/>
       <div className="flex-1 px-5 pb-6 flex flex-col gap-3">
-        <label className="flex flex-col gap-1 text-sm font-bold" style={{ color: PURPLE, ...ff }}>
-          Email
-          <input className="rounded-2xl px-4 py-3 font-semibold outline-none" style={{ background: "white", color: PURPLE }} value="parent@example.com" readOnly/>
-        </label>
+        <FormInput label="Full Name" value={name} onChange={(v) => { setName(v); setSaved(false) }} placeholder="Parent name"/>
+        <FormInput label="Email" type="email" value={email} onChange={(v) => { setEmail(v); setSaved(false) }} placeholder="parent@example.com"/>
+        {saved && <p className="text-sm font-bold text-center" style={{ color: GREEN, ...ff }}>Account details saved.</p>}
+        <PrimaryBtn onClick={() => setSaved(true)} disabled={!name.trim() || !email.trim()}>Save Account</PrimaryBtn>
         <PrimaryBtn onClick={() => go("resetPassword")}>Change Password</PrimaryBtn>
         <GoogleBtn label="Connect Google Sign-In"/>
       </div>
@@ -2066,7 +2119,11 @@ function AccountSettingsScreen({ go }: { go: (s: Screen) => void }) {
 
 function ChildProfileSettingsScreen({ profiles, go }: { profiles: Profile[]; go: (s: Screen) => void }) {
   const child = profiles[0] ?? DEMO_PROFILES[0]
-  const av = AVATARS.find(a => a.id === child.avatar) ?? AVATARS[0]
+  const [name, setName] = useState(child.name)
+  const [age, setAge] = useState(child.age)
+  const [avatar, setAvatar] = useState(child.avatar)
+  const [saved, setSaved] = useState(false)
+  const av = AVATARS.find(a => a.id === avatar) ?? AVATARS[0]
   return (
     <div className="flex flex-col h-full" style={{ background: PEACH }}>
       <ScreenHeader title="Child Profile" subtitle="No sensitive child data required" go={go} backTo="settingsHome"/>
@@ -2074,23 +2131,35 @@ function ChildProfileSettingsScreen({ profiles, go }: { profiles: Profile[]; go:
         <div className="rounded-3xl p-5 flex items-center gap-4" style={{ background: "white" }}>
           <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl" style={{ background: av.bg }}>{av.emoji}</div>
           <div>
-            <p className="font-bold text-xl" style={{ color: PURPLE, ...ffh }}>{child.name}</p>
-            <p className="text-sm" style={{ color: MUTED, ...ff }}>Age {child.age} learning profile</p>
+            <p className="font-bold text-xl" style={{ color: PURPLE, ...ffh }}>{name || "Child"}</p>
+            <p className="text-sm" style={{ color: MUTED, ...ff }}>Age {age} learning profile</p>
+          </div>
+        </div>
+        <FormInput label="Child's First Name" value={name} onChange={(v) => { setName(v); setSaved(false) }} placeholder="Child name"/>
+        <div>
+          <p className="text-sm font-bold mb-2" style={{ color: PURPLE, ...ff }}>Age Group</p>
+          <div className="flex gap-2">
+            {[5,6,7].map(n => (
+              <button key={n} onClick={() => { setAge(n); setSaved(false) }} className="flex-1 py-3 rounded-2xl font-bold border-2"
+                style={{ borderColor: age === n ? PINK : "rgba(255,132,186,0.2)", background: age === n ? PINK : "white", color: age === n ? "white" : PURPLE, ...ffh }}>
+                {n}
+              </button>
+            ))}
           </div>
         </div>
         <div className="grid grid-cols-4 gap-2">
           {AVATARS.map(a => (
-            <button key={a.id} className="aspect-square rounded-2xl text-2xl" style={{ background: a.bg }}>{a.emoji}</button>
+            <button key={a.id} onClick={() => { setAvatar(a.id); setSaved(false) }} className="aspect-square rounded-2xl text-2xl border-2" style={{ background: a.bg, borderColor: avatar === a.id ? PURPLE : "transparent" }}>{a.emoji}</button>
           ))}
         </div>
-        <ToggleLine label="Age group: 5-7" desc="Content stays inside the early-reader range."/>
-        <PrimaryBtn onClick={() => go("settingsHome")}>Save Profile</PrimaryBtn>
+        {saved && <p className="text-sm font-bold text-center" style={{ color: GREEN, ...ff }}>Profile settings saved.</p>}
+        <PrimaryBtn onClick={() => setSaved(true)} disabled={!name.trim()}>Save Profile</PrimaryBtn>
       </div>
     </div>
   )
 }
 
-function ManageProfilesScreen({ profiles, go }: { profiles: Profile[]; go: (s: Screen) => void }) {
+function ManageProfilesScreen({ profiles, go, onRemove }: { profiles: Profile[]; go: (s: Screen) => void; onRemove: (id: string) => void }) {
   return (
     <div className="flex flex-col h-full" style={{ background: PEACH }}>
       <ScreenHeader title="Profiles" subtitle="Family child profile management" go={go} backTo="settingsHome"/>
@@ -2104,7 +2173,12 @@ function ManageProfilesScreen({ profiles, go }: { profiles: Profile[]; go: (s: S
                 <p className="font-bold" style={{ color: PURPLE, ...ffh }}>{p.name}</p>
                 <p className="text-xs" style={{ color: MUTED, ...ff }}>Age {p.age}</p>
               </div>
-              <button className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: `${PINK}15` }}>
+              <button
+                onClick={() => onRemove(p.id)}
+                disabled={profiles.length <= 1}
+                className="w-9 h-9 rounded-xl flex items-center justify-center disabled:opacity-40"
+                style={{ background: `${PINK}15` }}
+              >
                 <Trash2 size={16} style={{ color: PINK }}/>
               </button>
             </div>
@@ -2249,6 +2323,7 @@ export default function App() {
   const go = useCallback((s: Screen) => setScreen(s), [])
 
   const addProfile = useCallback((p: Profile) => setProfiles(prev => [...prev, p]), [])
+  const removeProfile = useCallback((id: string) => setProfiles(prev => prev.length <= 1 ? prev : prev.filter(p => p.id !== id)), [])
   const addStory   = useCallback((s: Story)   => setUserStories(prev => [s, ...prev]), [])
 
   const allStories = [...userStories, ...CURATED_STORIES]
@@ -2288,7 +2363,7 @@ export default function App() {
       case "vocabFeedback": return <VocabFeedbackScreen word={selectedWord} go={go}/>
       // Activities
       case "activityIntro":   return <ActivityIntroScreen story={selectedStory} go={go}/>
-      case "activityScreen":  return <ActivityScreen story={selectedStory} go={go}/>
+      case "activityScreen":  return <ActivityScreen story={selectedStory} go={go} onComplete={setActivityScores}/>
       case "activityResults": return <ActivityResultsScreen scores={activityScores} story={selectedStory} go={go}/>
       // Progress
       case "myProgress":      return <MyProgressScreen go={go}/>
@@ -2297,7 +2372,7 @@ export default function App() {
       case "settingsHome": return <SettingsHomeScreen go={go}/>
       case "accountSettings": return <AccountSettingsScreen go={go}/>
       case "childProfileSettings": return <ChildProfileSettingsScreen profiles={profiles} go={go}/>
-      case "manageProfiles": return <ManageProfilesScreen profiles={profiles} go={go}/>
+      case "manageProfiles": return <ManageProfilesScreen profiles={profiles} go={go} onRemove={removeProfile}/>
       case "notificationSettings": return <NotificationSettingsScreen go={go}/>
       case "soundVoiceSettings": return <SoundVoiceSettingsScreen go={go}/>
       case "accessibilitySettings": return <AccessibilitySettingsScreen go={go}/>
