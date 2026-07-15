@@ -2515,9 +2515,9 @@ export default function App() {
   }
 
   return (
-    <div className="flex items-center justify-center w-full min-h-screen" style={{ background: "#D5C8E8" }}>
-      <div className="relative overflow-hidden w-full" style={{ maxWidth: 390, height: "100dvh", maxHeight: 844, borderRadius: "clamp(0px, 4vw, 40px)", boxShadow: "0 24px 80px rgba(61,43,78,0.35)" }}>
-        <motion.div key={screen} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.22 }} className="h-full">
+    <div className="w-full min-h-screen overflow-hidden" style={{ background: PEACH }}>
+      <div className="relative overflow-hidden w-full min-h-screen">
+        <motion.div key={screen} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.22 }} className="min-h-screen">
           {renderScreen()}
         </motion.div>
       </div>
