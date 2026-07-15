@@ -1760,7 +1760,7 @@ function TracingHomeScreen({ go, setTracingLetter, setTracingLevel }: {
   const totalStars = ALPHABET.reduce((sum, letter) => sum + Math.min(TRACING_PROGRESS[letter] ?? 0, 3), 0)
 
   const startTrace = (item: string, stars: number) => {
-    setTracingLevel(Math.min(stars + 1, 3) as 1|2|3)
+    setTracingLevel((stars >= 3 ? 1 : Math.min(stars + 1, 3)) as 1|2|3)
     setTracingLetter(item)
     go("tracingLetter")
   }
@@ -1981,6 +1981,10 @@ function TracingLetterScreen({ letter, level, go }: { letter: string; level: 1|2
   const strokes = !isWord ? (isUpper ? UPPER_TRACE_STROKES : LOWER_TRACE_STROKES)[letter.toUpperCase()] ?? [] : []
   const wordSteps = isWord ? letter.split("").map((_, i) => ({ x: 16 + i * (68 / Math.max(letter.length - 1, 1)), y: 62, n: i + 1 })) : []
   const totalSteps = Math.max(strokes.length || wordSteps.length, 1)
+  const traceFont = isWord ? "'Nunito', sans-serif" : "'Comic Sans MS', 'Comic Neue', 'Fredoka', sans-serif"
+  const textY = isWord ? 62 : isUpper ? 74 : 72
+  const textSize = isWord ? 28 : isUpper ? 72 : 74
+  const clipWidth = Math.min(100, (progress / totalSteps) * 100)
 
   useEffect(() => {
     if (tracing) {
@@ -2025,9 +2029,17 @@ function TracingLetterScreen({ letter, level, go }: { letter: string; level: 1|2
             <line x1="15" y1="48" x2="85" y2="48" stroke="#D8D1DC" strokeWidth="0.8" strokeDasharray="4 4"/>
             <line x1="15" y1="76" x2="85" y2="76" stroke="#D8D1DC" strokeWidth="0.8"/>
 
-            {isWord && level < 3 && (
-              <text x="50" y="62" textAnchor="middle" fontSize="28" fontFamily="Fredoka, sans-serif"
-                stroke={`${BLUE}40`} strokeWidth="1.2" fill="none" strokeDasharray="5,4">{letter}</text>
+            {level < 3 && (
+              <>
+                <text x="50" y={textY} textAnchor="middle" fontSize={textSize} fontFamily={traceFont}
+                  stroke={`${BLUE}45`} strokeWidth={isWord ? "1.2" : "1.6"} fill="none" strokeDasharray="4,4">{letter}</text>
+                <text x="50" y={textY} textAnchor="middle" fontSize={textSize} fontFamily={traceFont}
+                  stroke={PINK} strokeWidth={isWord ? "1.4" : "2"} fill={`${PINK}10`} strokeDasharray="4,4"
+                  opacity={tracing ? 1 : 0}
+                  style={{ clipPath: `inset(0 ${100-clipWidth}% 0 0)` }}>
+                  {letter}
+                </text>
+              </>
             )}
 
             {!isWord && level < 3 && strokes.map((stroke, i) => {
@@ -2037,7 +2049,7 @@ function TracingLetterScreen({ letter, level, go }: { letter: string; level: 1|2
                 <g key={`${letter}-${i}`}>
                   <path d={stroke.d} fill="none" stroke={done || active ? PINK : BLUE} strokeWidth={done || active ? 4 : 3}
                     strokeLinecap="round" strokeLinejoin="round" strokeDasharray={done || active ? "none" : "6 5"}
-                    opacity={done || active ? 0.95 : 0.42} markerEnd={`url(#${done || active ? "traceArrowDone" : "traceArrow"})`}/>
+                    opacity={done || active ? 0.45 : 0.28} markerEnd={`url(#${done || active ? "traceArrowDone" : "traceArrow"})`}/>
                   {level === 1 && (
                     <g>
                       <circle cx={stroke.label[0]} cy={stroke.label[1]} r="5" fill={done || active ? PINK : "white"} stroke={done || active ? PINK : BLUE} strokeWidth="1.5"/>
@@ -2056,7 +2068,7 @@ function TracingLetterScreen({ letter, level, go }: { letter: string; level: 1|2
             ))}
           </svg>
 
-          {level === 3 && <div className="w-20 h-20 rounded-full border-2 border-dashed opacity-30" style={{ borderColor: BLUE }}/>}
+          {level === 3 && <span className="text-xs font-bold opacity-50" style={{ color: MUTED, ...ff }}>Free trace area</span>}
         </div>
 
         <p className="text-xs mt-3 text-center" style={{ color: MUTED, ...ff }}>
