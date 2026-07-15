@@ -1756,13 +1756,28 @@ function TracingHomeScreen({ go, setTracingLetter, setTracingLevel }: {
   const [mode, setMode] = useState<"letters"|"words">("letters")
   const [caseMode, setCaseMode] = useState<"upper"|"lower">("upper")
   const [topic, setTopic] = useState(WORD_TRACING_TOPICS[0].id)
+  const [availableStars, setAvailableStars] = useState(3)
+  const [manualUnlocks, setManualUnlocks] = useState<Set<string>>(() => new Set())
+  const [unlockTarget, setUnlockTarget] = useState<{
+    key: string
+    item: string
+    stars: number
+    label: string
+    color: string
+  } | null>(null)
   const currentTopic = WORD_TRACING_TOPICS.find(t => t.id === topic) ?? WORD_TRACING_TOPICS[0]
-  const totalStars = ALPHABET.reduce((sum, letter) => sum + Math.min(TRACING_PROGRESS[letter] ?? 0, 3), 0)
-
   const startTrace = (item: string, stars: number) => {
     setTracingLevel((stars >= 3 ? 1 : Math.min(stars + 1, 3)) as 1|2|3)
     setTracingLetter(item)
     go("tracingLetter")
+  }
+  const askUnlock = (target: typeof unlockTarget) => setUnlockTarget(target)
+  const confirmUnlock = () => {
+    if (!unlockTarget || availableStars < 3) return
+    setAvailableStars(stars => stars - 3)
+    setManualUnlocks(prev => new Set(prev).add(unlockTarget.key))
+    startTrace(unlockTarget.item, unlockTarget.stars)
+    setUnlockTarget(null)
   }
 
   return (
@@ -1774,8 +1789,8 @@ function TracingHomeScreen({ go, setTracingLetter, setTracingLevel }: {
             <p className="text-sm mt-0.5" style={{ color: MUTED, ...ff }}>Win stars to open new steps.</p>
           </div>
           <div className="px-3 py-2 rounded-2xl text-center shadow-sm" style={{ background: "white" }}>
-            <div className="flex items-center gap-1 justify-center"><Star size={16} fill={YELLOW} stroke={YELLOW}/><span className="font-bold" style={{ color: PURPLE, ...ffh }}>{totalStars}</span></div>
-            <p className="text-[10px] font-bold" style={{ color: MUTED, ...ff }}>stars</p>
+            <div className="flex items-center gap-1 justify-center"><Star size={16} fill={YELLOW} stroke={YELLOW}/><span className="font-bold" style={{ color: PURPLE, ...ffh }}>{availableStars}</span></div>
+            <p className="text-[10px] font-bold" style={{ color: MUTED, ...ff }}>available</p>
           </div>
         </div>
 
@@ -1830,15 +1845,17 @@ function TracingHomeScreen({ go, setTracingLetter, setTracingLevel }: {
             <div className="grid grid-cols-5 gap-2.5">
               {ALPHABET.map((letter, index) => {
                 const prog = TRACING_PROGRESS[letter] ?? 0
-                const unlocked = index === 0 || (TRACING_PROGRESS[ALPHABET[index - 1]] ?? 0) >= 3
+                const key = `letter:${letter}`
+                const unlocked = index === 0 || (TRACING_PROGRESS[ALPHABET[index - 1]] ?? 0) >= 3 || manualUnlocks.has(key)
                 const display = caseMode === "upper" ? letter : letter.toLowerCase()
                 return (
-                  <button key={letter} disabled={!unlocked} onClick={() => startTrace(display, prog)}
-                    className="relative aspect-square rounded-2xl flex flex-col items-center justify-center gap-1 transition-all active:scale-95 shadow-sm disabled:active:scale-100"
+                  <button key={letter} onClick={() => unlocked ? startTrace(display, prog) : askUnlock({ key, item: display, stars: prog, label: `Letter ${display}`, color: BLUE })}
+                    className="relative aspect-square rounded-2xl flex flex-col items-center justify-center gap-1 transition-all active:scale-95 shadow-sm"
                     style={{ background: unlocked ? (prog===3 ? `${GREEN}30` : prog>0 ? `${BLUE}20` : "white") : "#F1E8F0", border: `2px solid ${prog===3 ? GREEN : prog>0 ? BLUE : "rgba(255,132,186,0.2)"}`, opacity: unlocked ? 1 : 0.72 }}>
                     {!unlocked && <Lock size={16} className="absolute top-2 right-2" style={{ color: MUTED }}/>}
                     <span className="text-xl font-bold" style={{ color: unlocked ? PURPLE : MUTED, ...ffh }}>{display}</span>
                     <div className="flex gap-0.5">{[0,1,2].map(i=><Star key={i} size={10} fill={i<prog ? YELLOW : "none"} stroke={i<prog ? YELLOW : "#D0C8D4"}/>)}</div>
+                    {!unlocked && <p className="text-[9px] font-bold" style={{ color: MUTED, ...ff }}>3 stars</p>}
                   </button>
                 )
               })}
@@ -1865,14 +1882,15 @@ function TracingHomeScreen({ go, setTracingLetter, setTracingLevel }: {
               {currentTopic.words.map((word, index) => {
                 const prog = WORD_TRACING_PROGRESS[word] ?? 0
                 const prevWord = currentTopic.words[index - 1]
-                const unlocked = index === 0 || (WORD_TRACING_PROGRESS[prevWord] ?? 0) >= 3
+                const key = `word:${word}`
+                const unlocked = index === 0 || (WORD_TRACING_PROGRESS[prevWord] ?? 0) >= 3 || manualUnlocks.has(key)
                 return (
-                  <button key={word} disabled={!unlocked} onClick={() => startTrace(word, prog)}
-                    className="relative rounded-3xl p-5 min-h-28 text-left shadow-sm disabled:active:scale-100 active:scale-[0.98]"
+                  <button key={word} onClick={() => unlocked ? startTrace(word, prog) : askUnlock({ key, item: word, stars: prog, label: `"${word}"`, color: currentTopic.color })}
+                    className="relative rounded-3xl p-5 min-h-28 text-left shadow-sm active:scale-[0.98]"
                     style={{ background: unlocked ? "white" : "#F1E8F0", border: `2px solid ${unlocked ? currentTopic.color : "transparent"}` }}>
                     {!unlocked && <Lock size={18} className="absolute top-3 right-3" style={{ color: MUTED }}/>}
                     <p className="text-2xl font-bold" style={{ color: unlocked ? PURPLE : MUTED, ...ffh }}>{word}</p>
-                    <p className="text-xs mt-1" style={{ color: MUTED, ...ff }}>3 tracing levels</p>
+                    <p className="text-xs mt-1" style={{ color: MUTED, ...ff }}>{unlocked ? "3 tracing levels" : "3 stars to unlock"}</p>
                     <div className="flex gap-1 mt-3">{[0,1,2].map(i=><Star key={i} size={14} fill={i<prog ? YELLOW : "none"} stroke={i<prog ? YELLOW : "#D0C8D4"}/>)}</div>
                   </button>
                 )
@@ -1881,6 +1899,30 @@ function TracingHomeScreen({ go, setTracingLetter, setTracingLevel }: {
           </>
         )}
       </div>
+
+      {unlockTarget && (
+        <div className="fixed inset-0 z-[2147483646] flex items-center justify-center px-5" style={{ background: "rgba(61,43,78,0.22)" }}>
+          <motion.div initial={{ scale: 0.94, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="w-full max-w-sm rounded-3xl p-5 shadow-xl" style={{ background: PEACH }}>
+            <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4" style={{ background: `${unlockTarget.color}22` }}>
+              <Lock size={26} style={{ color: unlockTarget.color }}/>
+            </div>
+            <h3 className="text-2xl font-bold mb-2" style={{ color: PURPLE, ...ffh }}>Unlock this level?</h3>
+            <p className="text-sm mb-4" style={{ color: MUTED, ...ff }}>
+              Would you like to unlock {unlockTarget.label}? You have {availableStars} available stars. It costs 3 stars.
+            </p>
+            <div className="rounded-2xl p-3 mb-4 flex items-center justify-between" style={{ background: "white" }}>
+              <span className="font-bold text-sm" style={{ color: PURPLE, ...ff }}>Your stars</span>
+              <div className="flex items-center gap-1"><Star size={18} fill={YELLOW} stroke={YELLOW}/><span className="font-bold" style={{ color: PURPLE, ...ffh }}>{availableStars}</span></div>
+            </div>
+            <PrimaryBtn color={unlockTarget.color} disabled={availableStars < 3} onClick={confirmUnlock}>
+              Use 3 Stars
+            </PrimaryBtn>
+            <button onClick={() => setUnlockTarget(null)} className="w-full py-3 text-sm font-bold" style={{ color: MUTED, ...ff }}>
+              Not Now
+            </button>
+          </motion.div>
+        </div>
+      )}
 
       <BottomNav active="tracingHome" go={go}/>
     </div>
@@ -2017,14 +2059,6 @@ function TracingLetterScreen({ letter, level, go }: { letter: string; level: 1|2
       <div className="flex-1 mx-5 flex flex-col items-center justify-center">
         <div className="w-full max-w-xs aspect-square rounded-3xl flex items-center justify-center relative shadow-sm overflow-hidden" style={{ background: "white" }}>
           <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full">
-            <defs>
-              <marker id="traceArrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto" markerUnits="strokeWidth">
-                <path d="M0,0 L6,3 L0,6 Z" fill={BLUE}/>
-              </marker>
-              <marker id="traceArrowDone" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto" markerUnits="strokeWidth">
-                <path d="M0,0 L6,3 L0,6 Z" fill={PINK}/>
-              </marker>
-            </defs>
             <line x1="15" y1="20" x2="85" y2="20" stroke="#D8D1DC" strokeWidth="0.8"/>
             <line x1="15" y1="48" x2="85" y2="48" stroke="#D8D1DC" strokeWidth="0.8" strokeDasharray="4 4"/>
             <line x1="15" y1="76" x2="85" y2="76" stroke="#D8D1DC" strokeWidth="0.8"/>
@@ -2034,7 +2068,7 @@ function TracingLetterScreen({ letter, level, go }: { letter: string; level: 1|2
                 <text x="50" y={textY} textAnchor="middle" fontSize={textSize} fontFamily={traceFont}
                   stroke={`${BLUE}45`} strokeWidth={isWord ? "1.2" : "1.6"} fill="none" strokeDasharray="4,4">{letter}</text>
                 <text x="50" y={textY} textAnchor="middle" fontSize={textSize} fontFamily={traceFont}
-                  stroke={PINK} strokeWidth={isWord ? "1.4" : "2"} fill={`${PINK}10`} strokeDasharray="4,4"
+                  stroke={PINK} strokeWidth={isWord ? "1.4" : "2"} fill="none" strokeDasharray="4,4"
                   opacity={tracing ? 1 : 0}
                   style={{ clipPath: `inset(0 ${100-clipWidth}% 0 0)` }}>
                   {letter}
@@ -2047,9 +2081,6 @@ function TracingLetterScreen({ letter, level, go }: { letter: string; level: 1|2
               const active = tracing && progress === i
               return (
                 <g key={`${letter}-${i}`}>
-                  <path d={stroke.d} fill="none" stroke={done || active ? PINK : BLUE} strokeWidth={done || active ? 4 : 3}
-                    strokeLinecap="round" strokeLinejoin="round" strokeDasharray={done || active ? "none" : "6 5"}
-                    opacity={done || active ? 0.45 : 0.28} markerEnd={`url(#${done || active ? "traceArrowDone" : "traceArrow"})`}/>
                   {level === 1 && (
                     <g>
                       <circle cx={stroke.label[0]} cy={stroke.label[1]} r="5" fill={done || active ? PINK : "white"} stroke={done || active ? PINK : BLUE} strokeWidth="1.5"/>
