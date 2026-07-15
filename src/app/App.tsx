@@ -977,7 +977,7 @@ function StoryThemeScreen({ go, setTheme }: { go: (s: Screen) => void; setTheme:
         <div className="grid grid-cols-2 gap-3">
           {THEMES.map(t => (
             <motion.button key={t.id} whileTap={{ scale: 0.95 }}
-              onClick={() => { setTheme(t.id); go("storyWriting") }}
+              onClick={() => { setTheme(t.id); go("storyTitle") }}
               className="rounded-3xl p-5 flex flex-col items-center gap-2 shadow-sm active:scale-95"
               style={{ background: "white", border: `2px solid ${t.color}30` }}>
               <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl" style={{ background: `${t.color}25` }}>{t.emoji}</div>
@@ -990,11 +990,60 @@ function StoryThemeScreen({ go, setTheme }: { go: (s: Screen) => void; setTheme:
   )
 }
 
-function StoryWritingScreen({ go, theme }: { go: (s: Screen) => void; theme: string }) {
+function StoryTitleScreen({ go, theme, title, onTitleChange }: { go: (s: Screen) => void; theme: string; title: string; onTitleChange: (title: string) => void }) {
+  const t = THEMES.find(x => x.id === theme) ?? THEMES[0]
+  const friendlyTitles = [
+    `My ${t.label} Story`,
+    `The Brave ${t.label}`,
+    `A Happy ${t.label} Day`,
+  ]
+  return (
+    <div className="flex flex-col h-full overflow-y-auto" style={{ background: PEACH }}>
+      <div className="flex items-center justify-between px-5 pt-6 pb-3"><BackBtn onClick={() => go("storyTheme")}/></div>
+      <div className="px-5 mb-4">
+        <h2 className="text-3xl font-bold" style={{ color: PURPLE, ...ffh }}>Name Your Story</h2>
+        <p className="text-sm mt-1" style={{ color: MUTED, ...ff }}>First, give your story a name.</p>
+      </div>
+
+      <div className="mx-5 mb-4 h-44 rounded-3xl flex flex-col items-center justify-center gap-2 shadow-sm" style={{ background: t.color }}>
+        <span style={{ fontSize: 52 }}>{t.emoji}</span>
+        <p className="font-bold text-xl text-white text-center px-5" style={{ ...ffh, textShadow: "0 1px 3px rgba(0,0,0,0.2)" }}>
+          {title || "My Story"}
+        </p>
+      </div>
+
+      <div className="px-5 flex flex-col gap-4">
+        <FormInput label="Story Name" value={title} onChange={onTitleChange} placeholder="Type a short name"/>
+        <div>
+          <p className="text-sm font-bold mb-2" style={{ color: MUTED, ...ff }}>Need an idea?</p>
+          <div className="flex flex-col gap-2">
+            {friendlyTitles.map(name => (
+              <button key={name} onClick={() => onTitleChange(name)} className="rounded-2xl px-4 py-3 text-left font-bold text-sm" style={{ background: "white", color: PURPLE, ...ff }}>
+                {name}
+              </button>
+            ))}
+          </div>
+        </div>
+        <PrimaryBtn color={t.color} disabled={!title.trim()} onClick={() => go("storyWriting")}>
+          Start Writing <ArrowRight size={18}/>
+        </PrimaryBtn>
+      </div>
+    </div>
+  )
+}
+
+function StoryWritingScreen({ go, theme, title, pages, onPagesChange }: {
+  go: (s: Screen) => void
+  theme: string
+  title: string
+  pages: string[]
+  onPagesChange: (pages: string[]) => void
+}) {
   const [text, setText] = useState("")
   const [activeSugg, setActiveSugg] = useState<string|null>(null)
   const [chatOpen, setChatOpen] = useState(false)
   const [chatInput, setChatInput] = useState("")
+  const [picturePromptOpen, setPicturePromptOpen] = useState(false)
   const [photoPanel, setPhotoPanel] = useState<string|null>(null)
   const uploadInputRef = useRef<HTMLInputElement|null>(null)
   const cameraInputRef = useRef<HTMLInputElement|null>(null)
@@ -1029,14 +1078,34 @@ function StoryWritingScreen({ go, theme }: { go: (s: Screen) => void; theme: str
     reader.readAsDataURL(file)
   }
   const addPhotoPrompt = () => {
-    const prompt = "In my picture, I see something special. It made the story begin when..."
+    const prompt = "In my picture, I see something special. It gave me a new idea."
     setText(prev => prev ? `${prev} ${prompt}` : prompt)
+  }
+  const currentPageNumber = pages.length + 1
+  const commitPage = () => {
+    const cleanText = text.trim()
+    if (!cleanText) return pages
+    const nextPages = [...pages, cleanText]
+    onPagesChange(nextPages)
+    return nextPages
+  }
+  const writeAnotherPage = () => {
+    commitPage()
+    setText("")
+    setActiveSugg(null)
+    setPhotoPanel(null)
+    setPicturePromptOpen(false)
+  }
+  const checkStory = () => {
+    commitPage()
+    setPicturePromptOpen(false)
+    go("storyFeedback")
   }
 
   return (
     <div className="relative flex flex-col h-full" style={{ background: PEACH }}>
       <div className="flex items-center justify-between px-5 pt-6 pb-3">
-        <BackBtn onClick={() => go("storyTheme")}/>
+        <BackBtn onClick={() => go("storyTitle")}/>
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-full" style={{ background: `${t.color}20` }}>
           <span>{t.emoji}</span>
           <span className="text-sm font-bold" style={{ color: t.color, ...ff }}>{t.label}</span>
@@ -1044,8 +1113,8 @@ function StoryWritingScreen({ go, theme }: { go: (s: Screen) => void; theme: str
       </div>
 
       <div className="px-5 mb-3">
-        <h2 className="text-xl font-bold" style={{ color: PURPLE, ...ffh }}>Write Your Story</h2>
-        <p className="text-xs" style={{ color: MUTED, ...ff }}>Need a push? Tap an idea below!</p>
+        <h2 className="text-xl font-bold" style={{ color: PURPLE, ...ffh }}>{title || "Write Your Story"}</h2>
+        <p className="text-xs" style={{ color: MUTED, ...ff }}>Page {currentPageNumber}. Tap an idea or write your own words.</p>
       </div>
 
       {/* AI suggestion chips */}
@@ -1058,59 +1127,6 @@ function StoryWritingScreen({ go, theme }: { go: (s: Screen) => void; theme: str
             <span className="text-sm leading-snug" style={{ color: PURPLE, ...ff }}>{s}</span>
           </button>
         ))}
-      </div>
-
-      <div className="px-5 mb-3">
-        <div className="rounded-2xl p-3 shadow-sm" style={{ background: "white", border: `1.5px solid ${PINK}35` }}>
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: `${PINK}18` }}>
-              <ImagePlus size={20} style={{ color: PINK }}/>
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-bold text-sm" style={{ color: PURPLE, ...ffh }}>Story Picture</p>
-              <p className="text-xs truncate" style={{ color: MUTED, ...ff }}>Add a photo for an illustrated panel.</p>
-            </div>
-          </div>
-
-          {photoPanel ? (
-            <div className="relative overflow-hidden rounded-2xl">
-              <img src={photoPanel} alt="Story panel reference" className="w-full h-36 object-cover"/>
-              <div className="absolute inset-x-0 bottom-0 p-2 flex gap-2" style={{ background: "linear-gradient(transparent, rgba(61,43,78,0.55))" }}>
-                <button onClick={addPhotoPrompt} className="flex-1 rounded-xl py-2 text-xs font-bold" style={{ background: "white", color: PINK, ...ff }}>
-                  Use for story idea
-                </button>
-                <button onClick={() => setPhotoPanel(null)} className="px-3 rounded-xl text-xs font-bold" style={{ background: `${PINK}E6`, color: "white", ...ff }}>
-                  Remove
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-2">
-              <button onClick={() => uploadInputRef.current?.click()} className="rounded-2xl py-3 flex items-center justify-center gap-2 font-bold text-sm" style={{ background: `${BLUE}20`, color: BLUE, ...ff }}>
-                <Upload size={16}/> Upload
-              </button>
-              <button onClick={() => cameraInputRef.current?.click()} className="rounded-2xl py-3 flex items-center justify-center gap-2 font-bold text-sm" style={{ background: `${PINK}18`, color: PINK, ...ff }}>
-                <Camera size={16}/> Capture
-              </button>
-            </div>
-          )}
-
-          <input
-            ref={uploadInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={e => handlePhotoPick(e.target.files?.[0])}
-          />
-          <input
-            ref={cameraInputRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            className="hidden"
-            onChange={e => handlePhotoPick(e.target.files?.[0])}
-          />
-        </div>
       </div>
 
       {/* Text area */}
@@ -1126,10 +1142,11 @@ function StoryWritingScreen({ go, theme }: { go: (s: Screen) => void; theme: str
         <p className="text-xs text-right mt-1 mb-3" style={{ color: MUTED, ...ff }}>{text.split(" ").filter(Boolean).length} words</p>
       </div>
 
-      <div className="px-5 pb-6">
-        <PrimaryBtn onClick={() => go("storyFeedback")} color={t.color} disabled={text.trim().length < 10}>
-          Check My Story <ArrowRight size={18}/>
+      <div className="px-5 pb-6 flex flex-col gap-2">
+        <PrimaryBtn onClick={() => setPicturePromptOpen(true)} color={t.color} disabled={text.trim().length < 10}>
+          I Finished This Page <ArrowRight size={18}/>
         </PrimaryBtn>
+        {pages.length > 0 && <p className="text-xs text-center" style={{ color: MUTED, ...ff }}>{pages.length} page{pages.length > 1 ? "s" : ""} saved so far</p>}
       </div>
 
       <motion.button
@@ -1193,13 +1210,68 @@ function StoryWritingScreen({ go, theme }: { go: (s: Screen) => void; theme: str
           </motion.div>
         </div>
       )}
+
+      {picturePromptOpen && (
+        <div className="absolute inset-0 z-30 flex items-center justify-center px-5" style={{ background: "rgba(61,43,78,0.22)" }}>
+          <motion.div initial={{ scale: 0.92, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="w-full max-w-sm rounded-3xl p-5 shadow-xl" style={{ background: PEACH }}>
+            <div className="flex items-start gap-3 mb-4">
+              <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: `${PINK}18` }}>
+                <ImagePlus size={24} style={{ color: PINK }}/>
+              </div>
+              <div className="flex-1">
+                <h3 className="text-xl font-bold" style={{ color: PURPLE, ...ffh }}>Add a picture?</h3>
+                <p className="text-sm mt-1" style={{ color: MUTED, ...ff }}>Would you like to add a photo for this page?</p>
+              </div>
+            </div>
+
+            {photoPanel ? (
+              <div className="relative overflow-hidden rounded-2xl mb-3">
+                <img src={photoPanel} alt="Story page picture" className="w-full h-40 object-cover"/>
+                <button onClick={() => setPhotoPanel(null)} className="absolute top-2 right-2 w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "rgba(255,255,255,0.9)" }}>
+                  <X size={16} style={{ color: MUTED }}/>
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2 mb-3">
+                <button onClick={() => uploadInputRef.current?.click()} className="rounded-2xl py-3 flex items-center justify-center gap-2 font-bold text-sm" style={{ background: `${BLUE}20`, color: BLUE, ...ff }}>
+                  <Upload size={16}/> Upload
+                </button>
+                <button onClick={() => cameraInputRef.current?.click()} className="rounded-2xl py-3 flex items-center justify-center gap-2 font-bold text-sm" style={{ background: `${PINK}18`, color: PINK, ...ff }}>
+                  <Camera size={16}/> Camera
+                </button>
+              </div>
+            )}
+
+            <input ref={uploadInputRef} type="file" accept="image/*" className="hidden" onChange={e => handlePhotoPick(e.target.files?.[0])}/>
+            <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={e => handlePhotoPick(e.target.files?.[0])}/>
+
+            <div className="flex flex-col gap-2">
+              {photoPanel && (
+                <button onClick={addPhotoPrompt} className="w-full rounded-2xl py-3 font-bold text-sm" style={{ background: `${YELLOW}45`, color: PURPLE, ...ff }}>
+                  Use picture for an idea
+                </button>
+              )}
+              <PrimaryBtn onClick={checkStory} color={t.color}>Check My Story</PrimaryBtn>
+              <OutlineBtn onClick={writeAnotherPage} color={BLUE}>Write Another Page</OutlineBtn>
+              <button onClick={() => setPicturePromptOpen(false)} className="w-full py-2 text-sm font-bold" style={{ color: MUTED, ...ff }}>Keep Writing</button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   )
 }
 
-function StoryFeedbackScreen({ go, theme }: { go: (s: Screen) => void; theme: string }) {
+function StoryFeedbackScreen({ go, theme, title, pages, onSave }: {
+  go: (s: Screen) => void
+  theme: string
+  title: string
+  pages: string[]
+  onSave: (s: Story) => void
+}) {
   const t = THEMES.find(x => x.id === theme) ?? THEMES[0]
   const [accepted, setAccepted] = useState<Record<number,boolean>>({})
+  const storyPages = pages.length ? pages : ["Once upon a time, I made a new story."]
   const suggestions = [
     { type: "spelling", original: "teh", suggestion: "the",    msg: "Looks like a small typo!" },
     { type: "grammar",  original: "she go", suggestion: "she goes", msg: "Let's make this sound smoother." },
@@ -1255,15 +1327,27 @@ function StoryFeedbackScreen({ go, theme }: { go: (s: Screen) => void; theme: st
       </div>
 
       <div className="px-5 pb-6">
-        <PrimaryBtn onClick={() => go("storyTitle")} color={t.color}>
-          Looks Good! <ArrowRight size={18}/>
+        <PrimaryBtn onClick={() => {
+          onSave({
+            id: Date.now().toString(),
+            title: title.trim() || "My Story",
+            theme,
+            emoji: t.emoji,
+            coverColor: t.color,
+            readTime: `${Math.max(1, storyPages.length * 2)} min`,
+            createdAt: new Date().toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}),
+            pages: storyPages,
+          })
+          go("storySaved")
+        }} color={t.color}>
+          Save My Story <ArrowRight size={18}/>
         </PrimaryBtn>
       </div>
     </div>
   )
 }
 
-function StoryTitleScreen({ go, theme, onSave }: { go: (s: Screen) => void; theme: string; onSave: (s: Story) => void }) {
+function LegacyStorySaveScreen({ go, theme, onSave }: { go: (s: Screen) => void; theme: string; onSave: (s: Story) => void }) {
   const [title, setTitle] = useState("")
   const [coverColor, setCoverColor] = useState(PINK)
   const t = THEMES.find(x => x.id === theme) ?? THEMES[0]
@@ -2519,6 +2603,8 @@ export default function App() {
   const [userStories, setUserStories] = useState<Story[]>(INIT_USER_STORIES)
   const [selectedStory, setSelectedStory] = useState<Story|null>(null)
   const [selectedTheme, setSelectedTheme] = useState("animals")
+  const [storyDraftTitle, setStoryDraftTitle] = useState("")
+  const [storyDraftPages, setStoryDraftPages] = useState<string[]>([])
   const [selectedLetter, setSelectedLetter] = useState("A")
   const [selectedWord, setSelectedWord] = useState<typeof VOCAB_WORDS[0]|null>(null)
   const [activityScores, setActivityScores] = useState<boolean[]>([])
@@ -2528,6 +2614,11 @@ export default function App() {
   const addProfile = useCallback((p: Profile) => setProfiles(prev => [...prev, p]), [])
   const removeProfile = useCallback((id: string) => setProfiles(prev => prev.length <= 1 ? prev : prev.filter(p => p.id !== id)), [])
   const addStory   = useCallback((s: Story)   => setUserStories(prev => [s, ...prev]), [])
+  const startStoryTheme = useCallback((theme: string) => {
+    setSelectedTheme(theme)
+    setStoryDraftTitle("")
+    setStoryDraftPages([])
+  }, [])
 
   const allStories = [...userStories, ...CURATED_STORIES]
 
@@ -2547,10 +2638,10 @@ export default function App() {
       case "home":            return <HomeScreen profiles={profiles} go={go}/>
       case "profileSwitch":   return <ProfileSwitchScreen profiles={profiles} go={go}/>
       // Story creation
-      case "storyTheme":    return <StoryThemeScreen go={go} setTheme={setSelectedTheme}/>
-      case "storyWriting":  return <StoryWritingScreen go={go} theme={selectedTheme}/>
-      case "storyFeedback": return <StoryFeedbackScreen go={go} theme={selectedTheme}/>
-      case "storyTitle":    return <StoryTitleScreen go={go} theme={selectedTheme} onSave={addStory}/>
+      case "storyTheme":    return <StoryThemeScreen go={go} setTheme={startStoryTheme}/>
+      case "storyWriting":  return <StoryWritingScreen go={go} theme={selectedTheme} title={storyDraftTitle} pages={storyDraftPages} onPagesChange={setStoryDraftPages}/>
+      case "storyFeedback": return <StoryFeedbackScreen go={go} theme={selectedTheme} title={storyDraftTitle} pages={storyDraftPages} onSave={addStory}/>
+      case "storyTitle":    return <StoryTitleScreen go={go} theme={selectedTheme} title={storyDraftTitle} onTitleChange={setStoryDraftTitle}/>
       case "storySaved":    return <StorySavedScreen go={go}/>
       // Reading
       case "storyLibrary": return <StoryLibraryScreen stories={allStories} go={go} setCurrentStory={setSelectedStory}/>
