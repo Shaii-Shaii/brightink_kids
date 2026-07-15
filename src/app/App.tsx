@@ -2041,26 +2041,61 @@ function ParentDashboardScreen({ profiles, go }: { profiles: Profile[]; go: (s: 
 
 // ─── APP ──────────────────────────────────────────────────────────────────────
 function SettingsHomeScreen({ go }: { go: (s: Screen) => void }) {
-  const [answer, setAnswer] = useState("")
+  const [pinInput, setPinInput] = useState("")
+  const [pinError, setPinError] = useState(false)
   const [unlocked, setUnlocked] = useState(false)
+  const parentPin = "2468"
+  const handlePinKey = (key: number | "back") => {
+    setPinError(false)
+    if (key === "back") {
+      setPinInput(prev => prev.slice(0, -1))
+      return
+    }
+    if (pinInput.length >= 4) return
+    const next = `${pinInput}${key}`
+    setPinInput(next)
+    if (next.length === 4) {
+      if (next === parentPin) {
+        setTimeout(() => setUnlocked(true), 180)
+      } else {
+        setPinError(true)
+        setTimeout(() => setPinInput(""), 350)
+      }
+    }
+  }
   if (!unlocked) {
     return (
       <div className="flex flex-col h-full" style={{ background: PEACH }}>
         <ScreenHeader title="Parent Check" subtitle="Settings are for grown-ups" go={go}/>
-        <div className="flex-1 px-6 flex flex-col items-center justify-center text-center pb-10">
+        <div className="flex-1 px-6 flex flex-col items-center justify-center text-center pb-8">
           <div className="w-20 h-20 rounded-3xl flex items-center justify-center mb-5 shadow-sm" style={{ background: "white" }}>
             <Lock size={32} style={{ color: PINK }}/>
           </div>
           <h2 className="text-2xl font-bold mb-2" style={{ color: PURPLE, ...ffh }}>Quick parent check</h2>
-          <p className="text-sm mb-6" style={{ color: MUTED, ...ff }}>What is 4 + 3?</p>
-          <input
-            value={answer}
-            onChange={e => setAnswer(e.target.value.replace(/\D/g, "").slice(0, 2))}
-            inputMode="numeric"
-            className="w-28 rounded-2xl px-4 py-3 text-center text-2xl font-bold outline-none mb-4"
-            style={{ background: "white", color: PURPLE, ...ffh }}
-          />
-          <PrimaryBtn onClick={() => setUnlocked(answer === "7")} disabled={answer !== "7"}>Unlock Settings</PrimaryBtn>
+          <p className="text-sm mb-6" style={{ color: MUTED, ...ff }}>Enter your 4-digit parent PIN.</p>
+          <div className="flex gap-3 mb-3" aria-label="PIN entry">
+            {[0,1,2,3].map(i => (
+              <div key={i} className="w-14 h-14 rounded-2xl flex items-center justify-center border-2 shadow-sm"
+                style={{ background: "white", borderColor: pinError ? "#FF4D4D" : pinInput.length > i ? PINK : "rgba(255,132,186,0.25)" }}>
+                <div className="w-3 h-3 rounded-full" style={{ background: pinInput.length > i ? PURPLE : "transparent" }}/>
+              </div>
+            ))}
+          </div>
+          <p className="h-5 text-xs font-bold mb-4" style={{ color: pinError ? "#CC4444" : MUTED, ...ff }}>
+            {pinError ? "Incorrect PIN. Try again." : "Settings stay locked for children."}
+          </p>
+          <div className="grid grid-cols-3 gap-3 w-full max-w-xs mb-5">
+            {[1,2,3,4,5,6,7,8,9,"",0,"back"].map((key, i) => (
+              <button
+                key={i}
+                onClick={() => key !== "" && handlePinKey(key === "back" ? "back" : Number(key))}
+                className={`h-14 rounded-2xl text-xl font-bold transition-all active:scale-95 ${key === "" ? "invisible" : ""}`}
+                style={{ background: "white", color: PURPLE, ...ffh }}
+              >
+                {key === "back" ? "⌫" : key}
+              </button>
+            ))}
+          </div>
           <button onClick={() => go("home")} className="mt-4 text-sm font-bold" style={{ color: MUTED, ...ff }}>Back to Home</button>
         </div>
       </div>
