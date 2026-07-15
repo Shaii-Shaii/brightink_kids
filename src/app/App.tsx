@@ -206,6 +206,33 @@ type TraceStroke = { d: string; label: [number, number] }
 type DrawStroke = { id: number; d: string }
 type TraceTool = "pen" | "eraser"
 
+function parseDrawPoints(paths: Array<DrawStroke | string>) {
+  return paths.flatMap(path => {
+    const d = typeof path === "string" ? path : path.d
+    return [...d.matchAll(/[ML]\s+([\d.]+)\s+([\d.]+)/g)].map(match => ({
+      x: Number(match[1]),
+      y: Number(match[2]),
+    }))
+  })
+}
+
+function parsePathCoords(d: string) {
+  return [...d.matchAll(/([\d.]+)\s+([\d.]+)/g)].map(match => ({
+    x: Number(match[1]),
+    y: Number(match[2]),
+  }))
+}
+
+function distanceToSegment(point: { x: number; y: number }, a: { x: number; y: number }, b: { x: number; y: number }) {
+  const dx = b.x - a.x
+  const dy = b.y - a.y
+  const lenSq = dx * dx + dy * dy || 1
+  const t = Math.max(0, Math.min(1, ((point.x - a.x) * dx + (point.y - a.y) * dy) / lenSq))
+  const x = a.x + t * dx
+  const y = a.y + t * dy
+  return Math.hypot(point.x - x, point.y - y)
+}
+
 function strokeArrowPosition(stroke: TraceStroke) {
   const match = stroke.d.match(/M\s*([\d.]+)\s+([\d.]+)\s*(?:[CL]\s*([\d.]+)\s+([\d.]+))?/)
   const x1 = Number(match?.[1] ?? stroke.label[0])
@@ -2049,6 +2076,7 @@ function TracingLetterScreen({ letter, level, go }: { letter: string; level: 1|2
   const currentPathRef = useRef("")
   const strokeIdRef = useRef(0)
   const [traceTool, setTraceTool] = useState<TraceTool>("pen")
+  const [validationError, setValidationError] = useState(false)
   const isWord = letter.length > 1
   const isUpper = !isWord && letter === letter.toUpperCase()
   const strokes = !isWord ? (isUpper ? UPPER_TRACE_STROKES : LOWER_TRACE_STROKES)[letter.toUpperCase()] ?? [] : []
@@ -2126,6 +2154,70 @@ function TracingLetterScreen({ letter, level, go }: { letter: string; level: 1|2
     }
     currentPathRef.current = ""
     setCurrentPath("")
+  }
+  const validateDrawing = (extraPath = currentPathRef.current || currentPath) => {
+    const paths = extraPath ? [...drawPaths, extraPath] : drawPaths
+    const points = parseDrawPoints(paths)
+    if (points.length < 8) return false
+
+    const minX = Math.min(...points.map(p => p.x))
+    const maxX = Math.max(...points.map(p => p.x))
+    const minY = Math.min(...points.map(p => p.y))
+    const maxY = Math.max(...points.map(p => p.y))
+    if ((maxX - minX) < 10 || (maxY - minY) < 16) return false
+
+    if (isWord) {
+      const expectedLeft = 18
+      const expectedRight = 82
+      const center = (minX + maxX) / 2
+      return center > expectedLeft && center < expectedRight && minY < 72 && maxY > 44
+    }
+
+    const guideStrokes = strokes.length ? strokes : (isUpper ? UPPER_TRACE_STROKES.A : LOWER_TRACE_STROKES.A)
+    const guideSegments = guideStrokes.flatMap(stroke => {
+      const coords = parsePathCoords(stroke.d)
+      return coords.slice(0, -1).map((point, i) => [point, coords[i + 1]] as const)
+    })
+    const nearGuide = points.filter(point =>
+      guideSegments.some(([a, b]) => distanceToSegment(point, a, b) <= 13)
+    ).length
+    const guideRatio = nearGuide / points.length
+
+    if (letter.toUpperCase() === "I") {
+      const centerLinePoints = points.filter(point => point.y > 25 && point.y < 72 && Math.abs(point.x - 50) <= 8)
+      const ySpread = centerLinePoints.length ? Math.max(...centerLinePoints.map(p => p.y)) - Math.min(...centerLinePoints.map(p => p.y)) : 0
+      return centerLinePoints.length >= 5 && ySpread >= 30
+    }
+
+    const guidePoints = guideStrokes.flatMap(stroke => [stroke.label, ...parsePathCoords(stroke.d).map(p => [p.x, p.y] as [number, number])])
+    const covered = guidePoints.filter(([x, y]) =>
+      points.some(point => Math.hypot(point.x - x, point.y - y) <= 16)
+    ).length
+    return guideRatio >= 0.35 && covered / Math.max(guidePoints.length, 1) >= 0.45
+  }
+  const finishTracing = () => {
+    const activePath = currentPathRef.current || currentPath
+    if (activePath?.includes(" L ")) {
+      strokeIdRef.current += 1
+      setDrawPaths(paths => [...paths, { id: strokeIdRef.current, d: activePath }])
+    }
+    const valid = validateDrawing(activePath)
+    setDrawing(false)
+    currentPathRef.current = ""
+    setCurrentPath("")
+    if (!valid) {
+      setValidationError(true)
+      return
+    }
+    go("tracingFeedback")
+  }
+  const restartTracing = () => {
+    setDrawPaths([])
+    setCurrentPath("")
+    currentPathRef.current = ""
+    setProgress(0)
+    setTraceTool("pen")
+    setValidationError(false)
   }
 
   return (
@@ -2264,10 +2356,10 @@ function TracingLetterScreen({ letter, level, go }: { letter: string; level: 1|2
           </PrimaryBtn>
         ) : (
           <div className="flex flex-col gap-3">
-            <PrimaryBtn color={BLUE} disabled={drawPaths.length === 0 && !currentPath} onClick={() => { endDrawing(); go("tracingFeedback") }}>
+            <PrimaryBtn color={BLUE} disabled={drawPaths.length === 0 && !currentPath} onClick={finishTracing}>
               Done <Check size={18}/>
             </PrimaryBtn>
-            <button onClick={() => { setDrawPaths([]); setCurrentPath(""); currentPathRef.current = ""; setProgress(0); setTraceTool("pen") }} className="w-full py-2 text-sm font-bold" style={{ color: MUTED, ...ff }}>
+            <button onClick={restartTracing} className="w-full py-2 text-sm font-bold" style={{ color: MUTED, ...ff }}>
               Clear and try again
             </button>
             {level === 1 && (
@@ -2278,6 +2370,23 @@ function TracingLetterScreen({ letter, level, go }: { letter: string; level: 1|2
           </div>
         )}
       </div>
+
+      {validationError && (
+        <div className="fixed inset-0 z-[2147483646] flex items-center justify-center px-5" style={{ background: "rgba(61,43,78,0.22)" }}>
+          <motion.div initial={{ scale: 0.94, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="w-full max-w-sm rounded-3xl p-5 text-center shadow-xl" style={{ background: PEACH }}>
+            <div className="w-16 h-16 rounded-3xl flex items-center justify-center mx-auto mb-4" style={{ background: `${PINK}18` }}>
+              <RotateCcw size={28} style={{ color: PINK }}/>
+            </div>
+            <h3 className="text-2xl font-bold mb-2" style={{ color: PURPLE, ...ffh }}>Try again</h3>
+            <p className="text-sm mb-5" style={{ color: MUTED, ...ff }}>
+              Follow the letter guide more closely to win the star.
+            </p>
+            <PrimaryBtn color={PINK} onClick={restartTracing}>
+              Restart Level
+            </PrimaryBtn>
+          </motion.div>
+        </div>
+      )}
     </div>
   )
 }
