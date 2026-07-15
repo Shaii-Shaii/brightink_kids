@@ -7,7 +7,7 @@ import {
   ChevronLeft, RotateCcw, Volume2, Settings, X,
   Trophy, Flame, BarChart2, Lock, Play, Sparkles,
   Bookmark, Heart, Zap, Bell, User, Shield, HelpCircle,
-  Type, WifiOff, Loader2, Trash2,
+  Type, WifiOff, Loader2, Trash2, Bot, Send,
 } from "lucide-react"
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip,
@@ -985,11 +985,35 @@ function StoryThemeScreen({ go, setTheme }: { go: (s: Screen) => void; setTheme:
 function StoryWritingScreen({ go, theme }: { go: (s: Screen) => void; theme: string }) {
   const [text, setText] = useState("")
   const [activeSugg, setActiveSugg] = useState<string|null>(null)
+  const [chatOpen, setChatOpen] = useState(false)
+  const [chatInput, setChatInput] = useState("")
+  const [chatMessages, setChatMessages] = useState([
+    { from: "bot" as const, text: "Hi! I can help you think of what happens next." },
+  ])
   const t = THEMES.find(x => x.id === theme) ?? THEMES[0]
   const suggestions = AI_SUGGESTIONS[theme] ?? AI_SUGGESTIONS.animals
+  const askBot = (prompt: string) => {
+    const cleanPrompt = prompt.trim()
+    if (!cleanPrompt) return
+    const idea = theme === "fantasy"
+      ? "Maybe your character finds a glowing map and follows it to a friendly castle."
+      : theme === "friendship"
+        ? "Maybe two friends solve a problem by listening and helping each other."
+        : "Maybe your character discovers a small surprise and chooses to be brave."
+    setChatMessages(prev => [
+      ...prev,
+      { from: "kid", text: cleanPrompt },
+      { from: "bot", text: idea },
+    ])
+    setChatInput("")
+  }
+  const addBotIdeaToStory = () => {
+    const lastBotIdea = [...chatMessages].reverse().find(m => m.from === "bot")?.text
+    if (lastBotIdea) setText(prev => prev ? `${prev} ${lastBotIdea}` : lastBotIdea)
+  }
 
   return (
-    <div className="flex flex-col h-full" style={{ background: PEACH }}>
+    <div className="relative flex flex-col h-full" style={{ background: PEACH }}>
       <div className="flex items-center justify-between px-5 pt-6 pb-3">
         <BackBtn onClick={() => go("storyTheme")}/>
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-full" style={{ background: `${t.color}20` }}>
@@ -1033,6 +1057,68 @@ function StoryWritingScreen({ go, theme }: { go: (s: Screen) => void; theme: str
           Check My Story <ArrowRight size={18}/>
         </PrimaryBtn>
       </div>
+
+      <motion.button
+        onClick={() => setChatOpen(true)}
+        whileTap={{ scale: 0.94 }}
+        className="absolute right-5 bottom-24 w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg"
+        style={{ background: PINK, color: "white" }}
+        aria-label="Open AI writing helper"
+      >
+        <Bot size={26}/>
+      </motion.button>
+
+      {chatOpen && (
+        <div className="absolute inset-0 z-20 flex flex-col justify-end" style={{ background: "rgba(61,43,78,0.18)" }}>
+          <motion.div initial={{ y: 260 }} animate={{ y: 0 }} className="mx-4 mb-4 rounded-3xl shadow-xl overflow-hidden" style={{ background: PEACH }}>
+            <div className="px-4 py-3 flex items-center gap-3" style={{ background: "white" }}>
+              <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ background: `${PINK}20` }}>
+                <Bot size={20} style={{ color: PINK }}/>
+              </div>
+              <div className="flex-1">
+                <p className="font-bold text-sm" style={{ color: PURPLE, ...ffh }}>BrightInk Buddy</p>
+                <p className="text-xs" style={{ color: MUTED, ...ff }}>Ask for a story idea</p>
+              </div>
+              <button onClick={() => setChatOpen(false)} className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: `${PINK}12` }}>
+                <X size={18} style={{ color: MUTED }}/>
+              </button>
+            </div>
+
+            <div className="max-h-72 overflow-y-auto px-4 py-3 flex flex-col gap-2">
+              {chatMessages.map((m, i) => (
+                <div key={i} className={`max-w-[82%] rounded-2xl px-3 py-2 text-sm leading-snug ${m.from === "kid" ? "self-end" : "self-start"}`}
+                  style={{ background: m.from === "kid" ? PINK : "white", color: m.from === "kid" ? "white" : PURPLE, ...ff }}>
+                  {m.text}
+                </div>
+              ))}
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                {["What happens next?", "Add a funny twist"].map(q => (
+                  <button key={q} onClick={() => askBot(q)} className="rounded-2xl px-3 py-2 text-xs font-bold text-left" style={{ background: "white", color: PINK, ...ff }}>
+                    {q}
+                  </button>
+                ))}
+              </div>
+              <button onClick={addBotIdeaToStory} className="rounded-2xl px-3 py-2 text-xs font-bold" style={{ background: `${BLUE}25`, color: BLUE, ...ff }}>
+                Add last idea to my story
+              </button>
+            </div>
+
+            <div className="p-3 flex items-center gap-2" style={{ background: "white" }}>
+              <input
+                value={chatInput}
+                onChange={e => setChatInput(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter") askBot(chatInput) }}
+                placeholder="Ask for help..."
+                className="flex-1 rounded-2xl px-3 py-3 outline-none text-sm"
+                style={{ background: PEACH, color: PURPLE, ...ff }}
+              />
+              <button onClick={() => askBot(chatInput)} className="w-11 h-11 rounded-2xl flex items-center justify-center" style={{ background: PINK }}>
+                <Send size={18} color="white"/>
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   )
 }
