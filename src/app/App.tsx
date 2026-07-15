@@ -180,6 +180,28 @@ const TRACING_PROGRESS: Record<string, number> = {
   Y: 1, Z: 0,
 }
 
+const WORD_TRACING_TOPICS = [
+  { id: "animals", label: "Animals", emoji: "Paw", color: PINK, words: ["cat", "dog", "bird", "fish"] },
+  { id: "numbers", label: "Numbers", emoji: "123", color: BLUE, words: ["one", "two", "three", "four"] },
+  { id: "days", label: "Days", emoji: "Sun", color: YELLOW, words: ["sun", "mon", "tue", "wed"] },
+  { id: "places", label: "Places", emoji: "Home", color: GREEN, words: ["home", "park", "school", "room"] },
+]
+
+const WORD_TRACING_PROGRESS: Record<string, number> = {
+  cat: 3, dog: 2, bird: 0, fish: 0,
+  one: 1, two: 0, three: 0, four: 0,
+  sun: 3, mon: 1, tue: 0, wed: 0,
+  home: 2, park: 0, school: 0, room: 0,
+}
+
+const VOWEL_PRACTICE = [
+  { vowel: "A", sound: "a as in apple", emoji: "apple", stars: 3 },
+  { vowel: "E", sound: "e as in egg", emoji: "egg", stars: 3 },
+  { vowel: "I", sound: "i as in igloo", emoji: "ice", stars: 2 },
+  { vowel: "O", sound: "o as in octopus", emoji: "octo", stars: 0 },
+  { vowel: "U", sound: "u as in umbrella", emoji: "rain", stars: 0 },
+]
+
 const DEMO_PROFILES: Profile[] = [
   { id: "1", name: "Mia", age: 6, avatar: "owl" },
   { id: "2", name: "Leo", age: 5, avatar: "bear" },
@@ -1610,7 +1632,7 @@ function StoryReadingScreen({ story, go }: { story: Story|null; go: (s: Screen) 
 }
 
 // ─── LETTER TRACING ───────────────────────────────────────────────────────────
-function TracingHomeScreen({ go, setTracingLetter }: { go: (s: Screen) => void; setTracingLetter: (l: string) => void }) {
+function LegacyTracingHomeScreen({ go, setTracingLetter }: { go: (s: Screen) => void; setTracingLetter: (l: string) => void }) {
   const [mode, setMode] = useState<"upper"|"lower">("upper")
   return (
     <div className="flex flex-col h-full" style={{ background: PEACH }}>
@@ -1666,7 +1688,146 @@ function TracingHomeScreen({ go, setTracingLetter }: { go: (s: Screen) => void; 
   )
 }
 
-function TracingLetterScreen({ letter, go }: { letter: string; go: (s: Screen) => void }) {
+function TracingHomeScreen({ go, setTracingLetter, setTracingLevel }: {
+  go: (s: Screen) => void
+  setTracingLetter: (l: string) => void
+  setTracingLevel: (level: 1|2|3) => void
+}) {
+  const [mode, setMode] = useState<"letters"|"words">("letters")
+  const [caseMode, setCaseMode] = useState<"upper"|"lower">("upper")
+  const [topic, setTopic] = useState(WORD_TRACING_TOPICS[0].id)
+  const currentTopic = WORD_TRACING_TOPICS.find(t => t.id === topic) ?? WORD_TRACING_TOPICS[0]
+  const totalStars = ALPHABET.reduce((sum, letter) => sum + Math.min(TRACING_PROGRESS[letter] ?? 0, 3), 0)
+
+  const startTrace = (item: string, stars: number) => {
+    setTracingLevel(Math.min(stars + 1, 3) as 1|2|3)
+    setTracingLetter(item)
+    go("tracingLetter")
+  }
+
+  return (
+    <div className="flex flex-col h-full" style={{ background: PEACH }}>
+      <div className="px-5 pt-6 pb-2">
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <div>
+            <h2 className="text-3xl font-bold" style={{ color: PURPLE, ...ffh }}>Practice Quest</h2>
+            <p className="text-sm mt-0.5" style={{ color: MUTED, ...ff }}>Win stars to open new steps.</p>
+          </div>
+          <div className="px-3 py-2 rounded-2xl text-center shadow-sm" style={{ background: "white" }}>
+            <div className="flex items-center gap-1 justify-center"><Star size={16} fill={YELLOW} stroke={YELLOW}/><span className="font-bold" style={{ color: PURPLE, ...ffh }}>{totalStars}</span></div>
+            <p className="text-[10px] font-bold" style={{ color: MUTED, ...ff }}>stars</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-2 mb-4">
+          {[
+            { id: "letters" as const, label: "Letters", icon: PenLine, color: BLUE },
+            { id: "words" as const, label: "Words", icon: Type, color: GREEN },
+            { id: "voice" as const, label: "Voice", icon: Mic, color: PINK },
+          ].map(tab => {
+            const Icon = tab.icon
+            const active = mode === tab.id
+            return (
+              <button key={tab.id} onClick={() => tab.id === "voice" ? go("vocabHome") : setMode(tab.id)}
+                className="rounded-2xl p-3 flex flex-col items-center gap-1 font-bold text-sm shadow-sm active:scale-[0.98]"
+                style={{ background: active ? tab.color : "white", color: active ? "white" : MUTED, ...ff }}>
+                <Icon size={18}/>
+                {tab.label}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-5 pb-28">
+        {mode === "letters" && (
+          <>
+            <div className="rounded-3xl p-4 mb-4 shadow-sm" style={{ background: "white" }}>
+              <p className="font-bold mb-2" style={{ color: PURPLE, ...ffh }}>3 levels for each letter</p>
+              <div className="grid grid-cols-3 gap-2 text-center">
+                {[["1", "Watch"], ["2", "Guide"], ["3", "No guide"]].map(([n, label]) => (
+                  <div key={n} className="rounded-2xl p-2" style={{ background: `${BLUE}16` }}>
+                    <p className="font-bold" style={{ color: BLUE, ...ffh }}>Level {n}</p>
+                    <p className="text-[10px]" style={{ color: MUTED, ...ff }}>{label}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm font-bold" style={{ color: MUTED, ...ff }}>Choose a letter</p>
+              <div className="flex gap-2">
+                {(["upper","lower"] as const).map(m => (
+                  <button key={m} onClick={() => setCaseMode(m)}
+                    className="px-3 py-1.5 rounded-full font-bold text-xs"
+                    style={{ background: caseMode===m ? BLUE : "white", color: caseMode===m ? "white" : MUTED, ...ff }}>
+                    {m==="upper" ? "ABC" : "abc"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-5 gap-2.5">
+              {ALPHABET.map((letter, index) => {
+                const prog = TRACING_PROGRESS[letter] ?? 0
+                const unlocked = index === 0 || (TRACING_PROGRESS[ALPHABET[index - 1]] ?? 0) >= 3
+                const display = caseMode === "upper" ? letter : letter.toLowerCase()
+                return (
+                  <button key={letter} disabled={!unlocked} onClick={() => startTrace(display, prog)}
+                    className="relative aspect-square rounded-2xl flex flex-col items-center justify-center gap-1 transition-all active:scale-95 shadow-sm disabled:active:scale-100"
+                    style={{ background: unlocked ? (prog===3 ? `${GREEN}30` : prog>0 ? `${BLUE}20` : "white") : "#F1E8F0", border: `2px solid ${prog===3 ? GREEN : prog>0 ? BLUE : "rgba(255,132,186,0.2)"}`, opacity: unlocked ? 1 : 0.72 }}>
+                    {!unlocked && <Lock size={16} className="absolute top-2 right-2" style={{ color: MUTED }}/>}
+                    <span className="text-xl font-bold" style={{ color: unlocked ? PURPLE : MUTED, ...ffh }}>{display}</span>
+                    <div className="flex gap-0.5">{[0,1,2].map(i=><Star key={i} size={10} fill={i<prog ? YELLOW : "none"} stroke={i<prog ? YELLOW : "#D0C8D4"}/>)}</div>
+                  </button>
+                )
+              })}
+            </div>
+          </>
+        )}
+
+        {mode === "words" && (
+          <>
+            <p className="text-sm font-bold mb-2" style={{ color: MUTED, ...ff }}>Pick a topic first</p>
+            <div className="grid grid-cols-2 gap-2.5 mb-4">
+              {WORD_TRACING_TOPICS.map(t => (
+                <button key={t.id} onClick={() => setTopic(t.id)}
+                  className="rounded-2xl p-3 text-left shadow-sm active:scale-[0.98]"
+                  style={{ background: topic === t.id ? `${t.color}28` : "white", border: `2px solid ${topic === t.id ? t.color : "transparent"}` }}>
+                  <p className="font-bold" style={{ color: PURPLE, ...ffh }}>{t.emoji}</p>
+                  <p className="text-sm font-bold" style={{ color: PURPLE, ...ff }}>{t.label}</p>
+                </button>
+              ))}
+            </div>
+
+            <p className="text-sm font-bold mb-2" style={{ color: MUTED, ...ff }}>Trace a word</p>
+            <div className="grid grid-cols-2 gap-3">
+              {currentTopic.words.map((word, index) => {
+                const prog = WORD_TRACING_PROGRESS[word] ?? 0
+                const prevWord = currentTopic.words[index - 1]
+                const unlocked = index === 0 || (WORD_TRACING_PROGRESS[prevWord] ?? 0) >= 3
+                return (
+                  <button key={word} disabled={!unlocked} onClick={() => startTrace(word, prog)}
+                    className="relative rounded-3xl p-5 min-h-28 text-left shadow-sm disabled:active:scale-100 active:scale-[0.98]"
+                    style={{ background: unlocked ? "white" : "#F1E8F0", border: `2px solid ${unlocked ? currentTopic.color : "transparent"}` }}>
+                    {!unlocked && <Lock size={18} className="absolute top-3 right-3" style={{ color: MUTED }}/>}
+                    <p className="text-2xl font-bold" style={{ color: unlocked ? PURPLE : MUTED, ...ffh }}>{word}</p>
+                    <p className="text-xs mt-1" style={{ color: MUTED, ...ff }}>3 tracing levels</p>
+                    <div className="flex gap-1 mt-3">{[0,1,2].map(i=><Star key={i} size={14} fill={i<prog ? YELLOW : "none"} stroke={i<prog ? YELLOW : "#D0C8D4"}/>)}</div>
+                  </button>
+                )
+              })}
+            </div>
+          </>
+        )}
+      </div>
+
+      <BottomNav active="tracingHome" go={go}/>
+    </div>
+  )
+}
+
+function LegacyTracingLetterScreen({ letter, go }: { letter: string; go: (s: Screen) => void }) {
   const [tracing, setTracing] = useState(false)
   const [progress, setProgress] = useState(0)
   const isUpper = letter === letter.toUpperCase()
@@ -1752,32 +1913,121 @@ function TracingLetterScreen({ letter, go }: { letter: string; go: (s: Screen) =
   )
 }
 
-function TracingFeedbackScreen({ letter, go }: { letter: string; go: (s: Screen) => void }) {
-  const [stars] = useState(Math.random() > 0.3 ? 3 : 2)
-  const msgs = ["Super tracing! You're a star! ⭐", "Amazing job! Keep practising!", "Great work! You're getting better every day!"]
+function TracingLetterScreen({ letter, level, go }: { letter: string; level: 1|2|3; go: (s: Screen) => void }) {
+  const [tracing, setTracing] = useState(false)
+  const [progress, setProgress] = useState(0)
+  const isWord = letter.length > 1
+  const isUpper = !isWord && letter === letter.toUpperCase()
+  const dotPositions = isUpper
+    ? [{ x: 50, y: 15, n: 1 }, { x: 15, y: 85, n: 2 }, { x: 85, y: 85, n: 3 }, { x: 35, y: 55, n: 4 }, { x: 65, y: 55, n: 5 }]
+    : isWord
+      ? [{ x: 18, y: 60, n: 1 }, { x: 38, y: 60, n: 2 }, { x: 58, y: 60, n: 3 }, { x: 78, y: 60, n: 4 }]
+      : [{ x: 50, y: 10, n: 1 }, { x: 50, y: 90, n: 2 }, { x: 75, y: 25, n: 3 }]
+
+  useEffect(() => {
+    if (tracing) {
+      let i = 0
+      const timer = setInterval(() => {
+        i++
+        setProgress(i)
+        if (i >= dotPositions.length) { clearInterval(timer); setTimeout(() => go("tracingFeedback"), 500) }
+      }, level === 1 ? 520 : 640)
+      return () => clearInterval(timer)
+    }
+  }, [tracing, level])
+
+  return (
+    <div className="flex flex-col h-full" style={{ background: PEACH }}>
+      <div className="flex items-center justify-between px-5 pt-6 pb-2">
+        <BackBtn onClick={() => go("tracingHome")}/>
+        <div className="px-3 py-1.5 rounded-full font-bold text-sm" style={{ background: `${BLUE}20`, color: BLUE, ...ff }}>
+          Level {level}
+        </div>
+      </div>
+
+      <div className="px-5 mb-2">
+        <h2 className="text-2xl font-bold" style={{ color: PURPLE, ...ffh }}>{isWord ? "Trace the word" : "Trace the letter"}</h2>
+        <p className="text-sm" style={{ color: MUTED, ...ff }}>
+          {level === 1 ? "Watch the pink line, then try it." : level === 2 ? "Follow the guide with your finger." : "Try it all by yourself."}
+        </p>
+      </div>
+
+      <div className="flex-1 mx-5 flex flex-col items-center justify-center">
+        <div className="w-full max-w-xs aspect-square rounded-3xl flex items-center justify-center relative shadow-sm overflow-hidden" style={{ background: "white" }}>
+          <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full">
+            {level < 3 && (
+              <text x="50" y={isWord ? "62" : "80"} textAnchor="middle" fontSize={isWord ? "28" : "85"} fontFamily="Fredoka, sans-serif"
+                stroke={`${BLUE}40`} strokeWidth={isWord ? "1.2" : "2"} fill="none" strokeDasharray="5,4">{letter}</text>
+            )}
+            {(tracing || level === 1) && (
+              <text x="50" y={isWord ? "62" : "80"} textAnchor="middle" fontSize={isWord ? "28" : "85"} fontFamily="Fredoka, sans-serif"
+                stroke={PINK} strokeWidth={isWord ? "1.5" : "2.5"} fill={`${PINK}15`} strokeDasharray="5,4"
+                style={{ clipPath: `inset(0 ${100-(progress/dotPositions.length)*100}% 0 0)` }}>
+                {letter}
+              </text>
+            )}
+          </svg>
+
+          {level < 3 && dotPositions.map(dot => (
+            <div key={dot.n} className="absolute w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shadow-sm transition-all"
+              style={{
+                left: `${dot.x}%`, top: `${dot.y}%`,
+                transform: "translate(-50%,-50%)",
+                background: progress >= dot.n ? GREEN : BLUE,
+                color: "white", ...ff,
+                scale: progress === dot.n ? "1.2" : "1",
+              }}>
+              {level === 1 ? dot.n : ""}
+            </div>
+          ))}
+
+          {level === 3 && (
+            <p className={`${isWord ? "text-4xl" : "text-7xl"} font-bold opacity-20`} style={{ color: PURPLE, ...ffh }}>{letter}</p>
+          )}
+        </div>
+
+        <p className="text-xs mt-3 text-center" style={{ color: MUTED, ...ff }}>
+          {tracing ? `Tracing step ${Math.min(progress+1, dotPositions.length)} of ${dotPositions.length}` : level === 3 ? "Tap START and write it from memory." : "Tap START and follow the guide."}
+        </p>
+      </div>
+
+      <div className="px-5 pb-6">
+        {!tracing ? (
+          <PrimaryBtn color={BLUE} onClick={() => { setTracing(true); setProgress(0) }}>
+            <PenLine size={18}/> Start
+          </PrimaryBtn>
+        ) : (
+          <div className="h-2 rounded-full" style={{ background: "#E0EEF8" }}>
+            <motion.div className="h-full rounded-full" animate={{ width: `${(progress/dotPositions.length)*100}%` }} style={{ background: BLUE }}/>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function TracingFeedbackScreen({ letter, level, go }: { letter: string; level: 1|2|3; go: (s: Screen) => void }) {
+  const isWord = letter.length > 1
   return (
     <div className="flex flex-col items-center justify-center h-full px-6 text-center" style={{ background: PEACH }}>
       <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 180, damping: 14 }}
         className="w-32 h-32 rounded-full flex items-center justify-center mb-5 shadow-md" style={{ background: "white" }}>
-        <span style={{ fontSize: 72, fontFamily: "'Fredoka', sans-serif", color: BLUE }}>{letter}</span>
+        <span style={{ fontSize: isWord ? 34 : 72, fontFamily: "'Fredoka', sans-serif", color: BLUE }}>{letter}</span>
       </motion.div>
 
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-        {/* Stars */}
-        <div className="flex justify-center gap-2 mb-4">
-          {[0,1,2].map(i => (
-            <motion.div key={i} initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.4 + i*0.15, type: "spring" }}>
-              <Star size={36} fill={i<stars ? YELLOW : "none"} stroke={i<stars ? YELLOW : "#D0C8D4"}/>
-            </motion.div>
-          ))}
+        <div className="flex justify-center mb-4">
+          <motion.div initial={{ scale: 0, rotate: -20 }} animate={{ scale: 1, rotate: 0 }} transition={{ delay: 0.35, type: "spring" }}>
+            <Star size={56} fill={YELLOW} stroke={YELLOW}/>
+          </motion.div>
         </div>
 
-        <h2 className="text-2xl font-bold mb-1" style={{ color: PURPLE, ...ffh }}>{stars===3 ? "Perfect!" : "Good try!"}</h2>
-        <p className="text-sm mb-8" style={{ color: MUTED, ...ff }}>{msgs[stars-1]}</p>
+        <h2 className="text-2xl font-bold mb-1" style={{ color: PURPLE, ...ffh }}>You won 1 star!</h2>
+        <p className="text-sm mb-8" style={{ color: MUTED, ...ff }}>Level {level} done. Get 3 stars to open the next step.</p>
 
         <div className="flex flex-col gap-3 w-full max-w-xs mx-auto">
           <PrimaryBtn color={BLUE} onClick={() => go("tracingHome")}>
-            Next Letter <ArrowRight size={18}/>
+            Back to Quest <ArrowRight size={18}/>
           </PrimaryBtn>
           <OutlineBtn color={BLUE} onClick={() => go("tracingLetter")}>
             <RotateCcw size={16}/> Try Again
@@ -1789,7 +2039,7 @@ function TracingFeedbackScreen({ letter, go }: { letter: string; go: (s: Screen)
 }
 
 // ─── VOCABULARY / SPEECH ──────────────────────────────────────────────────────
-function VocabHomeScreen({ go, setCurrentWord }: { go: (s: Screen) => void; setCurrentWord: (w: typeof VOCAB_WORDS[0]) => void }) {
+function LegacyVocabHomeScreen({ go, setCurrentWord }: { go: (s: Screen) => void; setCurrentWord: (w: typeof VOCAB_WORDS[0]) => void }) {
   return (
     <div className="flex flex-col h-full" style={{ background: PEACH }}>
       <div className="px-5 pt-6 pb-2">
@@ -1825,6 +2075,99 @@ function VocabHomeScreen({ go, setCurrentWord }: { go: (s: Screen) => void; setC
                 <p className="text-xs" style={{ color: MUTED, ...ff }}>{w.phonetic}</p>
               </div>
               <Mic size={16} style={{ color: PINK }}/>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <BottomNav active="tracingHome" go={go}/>
+    </div>
+  )
+}
+
+function VocabHomeScreen({ go, setCurrentWord }: { go: (s: Screen) => void; setCurrentWord: (w: typeof VOCAB_WORDS[0]) => void }) {
+  const vowelStars = VOWEL_PRACTICE.reduce((sum, v) => sum + Math.min(v.stars, 3), 0)
+  const vowelsDone = VOWEL_PRACTICE.every(v => v.stars >= 3)
+
+  return (
+    <div className="flex flex-col h-full" style={{ background: PEACH }}>
+      <div className="px-5 pt-6 pb-2">
+        <div className="flex items-center justify-between mb-2">
+          <BackBtn onClick={() => go("tracingHome")}/>
+          <div className="px-3 py-2 rounded-2xl flex items-center gap-1 shadow-sm" style={{ background: "white" }}>
+            <Star size={16} fill={YELLOW} stroke={YELLOW}/>
+            <span className="font-bold" style={{ color: PURPLE, ...ffh }}>{vowelStars}/15</span>
+          </div>
+        </div>
+        <h2 className="text-3xl font-bold" style={{ color: PURPLE, ...ffh }}>Voice Quest</h2>
+        <p className="text-sm mt-0.5 mb-4" style={{ color: MUTED, ...ff }}>Read vowels first. Then read words.</p>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-5 pb-28">
+        <div className="rounded-3xl p-4 mb-4 shadow-sm" style={{ background: "white" }}>
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-11 h-11 rounded-2xl flex items-center justify-center" style={{ background: `${PINK}18` }}>
+              <Volume2 size={22} style={{ color: PINK }}/>
+            </div>
+            <div>
+              <p className="font-bold" style={{ color: PURPLE, ...ffh }}>Step 1: Vowel Reading</p>
+              <p className="text-xs" style={{ color: MUTED, ...ff }}>Earn 3 stars for each vowel.</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-5 gap-2">
+            {VOWEL_PRACTICE.map((v, index) => {
+              const unlocked = index === 0 || VOWEL_PRACTICE[index - 1].stars >= 3
+              return (
+                <button key={v.vowel} disabled={!unlocked} onClick={() => {
+                  setCurrentWord({ word: v.vowel, phonetic: v.sound, emoji: v.emoji, hint: "Say the vowel sound." })
+                  go("vocabPractice")
+                }}
+                  className="relative rounded-2xl py-3 flex flex-col items-center gap-1 shadow-sm disabled:active:scale-100 active:scale-95"
+                  style={{ background: unlocked ? `${PINK}12` : "#F1E8F0", opacity: unlocked ? 1 : 0.72 }}>
+                  {!unlocked && <Lock size={13} className="absolute top-1.5 right-1.5" style={{ color: MUTED }}/>}
+                  <span className="text-2xl font-bold" style={{ color: unlocked ? PURPLE : MUTED, ...ffh }}>{v.vowel}</span>
+                  <div className="flex gap-0.5">{[0,1,2].map(i=><Star key={i} size={9} fill={i<v.stars ? YELLOW : "none"} stroke={i<v.stars ? YELLOW : "#D0C8D4"}/>)}</div>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        <div className="rounded-3xl p-4 mb-4 shadow-sm" style={{ background: vowelsDone ? "white" : "#F1E8F0" }}>
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-11 h-11 rounded-2xl flex items-center justify-center" style={{ background: vowelsDone ? `${BLUE}20` : "white" }}>
+              {vowelsDone ? <Mic size={22} style={{ color: BLUE }}/> : <Lock size={22} style={{ color: MUTED }}/>}
+            </div>
+            <div>
+              <p className="font-bold" style={{ color: vowelsDone ? PURPLE : MUTED, ...ffh }}>Step 2: Word Reading</p>
+              <p className="text-xs" style={{ color: MUTED, ...ff }}>{vowelsDone ? "Now read full words." : "Get 3 stars on all vowels to open this."}</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2.5">
+            {VOCAB_WORDS.slice(0, 4).map((w, index) => (
+              <button key={w.word} disabled={!vowelsDone} onClick={() => { setCurrentWord(w); go("vocabPractice") }}
+                className="flex items-center gap-3 p-3 rounded-2xl shadow-sm disabled:active:scale-100 active:scale-[0.98]"
+                style={{ background: vowelsDone ? "white" : "rgba(255,255,255,0.55)" }}>
+                <span style={{ fontSize: 28 }}>{w.emoji}</span>
+                <div className="flex-1 text-left min-w-0">
+                  <p className="font-bold truncate" style={{ color: vowelsDone ? PURPLE : MUTED, ...ffh }}>{w.word}</p>
+                  <p className="text-xs truncate" style={{ color: MUTED, ...ff }}>{index + 1} star to win</p>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <p className="text-sm font-bold mb-2" style={{ color: MUTED, ...ff }}>More word groups</p>
+        <div className="grid grid-cols-2 gap-2.5">
+          {VOCAB_CATEGORIES.map(c => (
+            <button key={c.id} disabled={!vowelsDone} onClick={() => { setCurrentWord(VOCAB_WORDS[0]); go("vocabPractice") }}
+              className="rounded-2xl p-4 flex items-center gap-3 shadow-sm disabled:active:scale-100 active:scale-95"
+              style={{ background: vowelsDone ? "white" : "#F1E8F0", border: `2px solid ${vowelsDone ? `${c.color}25` : "transparent"}` }}>
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0" style={{ background: `${c.color}25` }}>{vowelsDone ? c.emoji : <Lock size={18} style={{ color: MUTED }}/>}</div>
+              <p className="font-bold text-sm text-left" style={{ color: vowelsDone ? PURPLE : MUTED, ...ff }}>{c.label}</p>
             </button>
           ))}
         </div>
@@ -2611,6 +2954,7 @@ export default function App() {
   const [storyDraftTitle, setStoryDraftTitle] = useState("")
   const [storyDraftPages, setStoryDraftPages] = useState<string[]>([])
   const [selectedLetter, setSelectedLetter] = useState("A")
+  const [selectedTracingLevel, setSelectedTracingLevel] = useState<1|2|3>(1)
   const [selectedWord, setSelectedWord] = useState<typeof VOCAB_WORDS[0]|null>(null)
   const [activityScores, setActivityScores] = useState<boolean[]>([])
 
@@ -2653,9 +2997,9 @@ export default function App() {
       case "storyDetail":  return <StoryDetailScreen story={selectedStory} go={go}/>
       case "storyReading": return <StoryReadingScreen story={selectedStory} go={go}/>
       // Tracing
-      case "tracingHome":    return <TracingHomeScreen go={go} setTracingLetter={setSelectedLetter}/>
-      case "tracingLetter":  return <TracingLetterScreen letter={selectedLetter} go={go}/>
-      case "tracingFeedback":return <TracingFeedbackScreen letter={selectedLetter} go={go}/>
+      case "tracingHome":    return <TracingHomeScreen go={go} setTracingLetter={setSelectedLetter} setTracingLevel={setSelectedTracingLevel}/>
+      case "tracingLetter":  return <TracingLetterScreen letter={selectedLetter} level={selectedTracingLevel} go={go}/>
+      case "tracingFeedback":return <TracingFeedbackScreen letter={selectedLetter} level={selectedTracingLevel} go={go}/>
       // Vocab
       case "vocabHome":     return <VocabHomeScreen go={go} setCurrentWord={setSelectedWord}/>
       case "vocabPractice": return <VocabPracticeScreen word={selectedWord} go={go}/>
