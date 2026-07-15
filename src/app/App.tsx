@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react"
-import type { ComponentType, CSSProperties } from "react"
+import type { ComponentType, CSSProperties, PointerEvent as ReactPointerEvent } from "react"
 import { createPortal } from "react-dom"
 import { motion } from "motion/react"
 import {
@@ -2028,6 +2028,9 @@ function LegacyTracingLetterScreen({ letter, go }: { letter: string; go: (s: Scr
 function TracingLetterScreen({ letter, level, go }: { letter: string; level: 1|2|3; go: (s: Screen) => void }) {
   const [tracing, setTracing] = useState(false)
   const [progress, setProgress] = useState(0)
+  const [drawing, setDrawing] = useState(false)
+  const [drawPaths, setDrawPaths] = useState<string[]>([])
+  const [currentPath, setCurrentPath] = useState("")
   const isWord = letter.length > 1
   const isUpper = !isWord && letter === letter.toUpperCase()
   const strokes = !isWord ? (isUpper ? UPPER_TRACE_STROKES : LOWER_TRACE_STROKES)[letter.toUpperCase()] ?? [] : []
@@ -2039,16 +2042,39 @@ function TracingLetterScreen({ letter, level, go }: { letter: string; level: 1|2
   const clipWidth = Math.min(100, (progress / totalSteps) * 100)
 
   useEffect(() => {
-    if (tracing) {
+    if (tracing && level === 1) {
       let i = 0
       const timer = setInterval(() => {
         i++
         setProgress(i)
-        if (i >= totalSteps) { clearInterval(timer); setTimeout(() => go("tracingFeedback"), 500) }
+        if (i >= totalSteps) clearInterval(timer)
       }, level === 1 ? 520 : 640)
       return () => clearInterval(timer)
     }
   }, [tracing, level, totalSteps])
+
+  const pointerPoint = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect()
+    const x = ((e.clientX - rect.left) / rect.width) * 100
+    const y = ((e.clientY - rect.top) / rect.height) * 100
+    return `${x.toFixed(1)} ${y.toFixed(1)}`
+  }
+  const startDrawing = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (!tracing) return
+    e.currentTarget.setPointerCapture(e.pointerId)
+    setDrawing(true)
+    setCurrentPath(`M ${pointerPoint(e)}`)
+  }
+  const moveDrawing = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (!drawing || !tracing) return
+    setCurrentPath(path => `${path} L ${pointerPoint(e)}`)
+  }
+  const endDrawing = () => {
+    if (!drawing) return
+    setDrawing(false)
+    if (currentPath) setDrawPaths(paths => [...paths, currentPath])
+    setCurrentPath("")
+  }
 
   return (
     <div className="flex flex-col h-full" style={{ background: PEACH }}>
@@ -2067,7 +2093,14 @@ function TracingLetterScreen({ letter, level, go }: { letter: string; level: 1|2
       </div>
 
       <div className="flex-1 mx-5 flex flex-col items-center justify-center">
-        <div className="w-full max-w-xs aspect-square rounded-3xl flex items-center justify-center relative shadow-sm overflow-hidden" style={{ background: "white" }}>
+        <div
+          className="w-full max-w-xs aspect-square rounded-3xl flex items-center justify-center relative shadow-sm overflow-hidden touch-none select-none"
+          style={{ background: "white" }}
+          onPointerDown={startDrawing}
+          onPointerMove={moveDrawing}
+          onPointerUp={endDrawing}
+          onPointerCancel={endDrawing}
+        >
           <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full">
             <line x1="15" y1="20" x2="85" y2="20" stroke="#D8D1DC" strokeWidth="0.8"/>
             <line x1="15" y1="48" x2="85" y2="48" stroke="#D8D1DC" strokeWidth="0.8" strokeDasharray="4 4"/>
@@ -2122,24 +2155,40 @@ function TracingLetterScreen({ letter, level, go }: { letter: string; level: 1|2
                 )}
               </g>
             ))}
+
+            {[...drawPaths, currentPath].filter(Boolean).map((path, i) => (
+              <path key={i} d={path} fill="none" stroke={PURPLE} strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.9"/>
+            ))}
           </svg>
 
-          {level === 3 && <span className="text-xs font-bold opacity-50" style={{ color: MUTED, ...ff }}>Free trace area</span>}
+          {level === 3 && drawPaths.length === 0 && !currentPath && (
+            <span className="pointer-events-none text-xs font-bold opacity-50" style={{ color: MUTED, ...ff }}>Draw here</span>
+          )}
         </div>
 
         <p className="text-xs mt-3 text-center" style={{ color: MUTED, ...ff }}>
-          {tracing ? `Tracing step ${Math.min(progress+1, totalSteps)} of ${totalSteps}` : level === 3 ? "Tap START and write it from memory." : "Tap START and follow the arrows."}
+          {!tracing ? (level === 3 ? "Tap START, then draw the letter." : "Tap START, then trace with your finger.") : drawPaths.length ? "Nice drawing. Tap Done when finished." : "Draw on the board with your finger."}
         </p>
       </div>
 
       <div className="px-5 pb-6">
         {!tracing ? (
-          <PrimaryBtn color={BLUE} onClick={() => { setTracing(true); setProgress(0) }}>
+          <PrimaryBtn color={BLUE} onClick={() => { setTracing(true); setProgress(0); setDrawPaths([]); setCurrentPath("") }}>
             <PenLine size={18}/> Start
           </PrimaryBtn>
         ) : (
-          <div className="h-2 rounded-full" style={{ background: "#E0EEF8" }}>
-            <motion.div className="h-full rounded-full" animate={{ width: `${(progress/totalSteps)*100}%` }} style={{ background: BLUE }}/>
+          <div className="flex flex-col gap-3">
+            <PrimaryBtn color={BLUE} disabled={drawPaths.length === 0 && !currentPath} onClick={() => go("tracingFeedback")}>
+              Done <Check size={18}/>
+            </PrimaryBtn>
+            <button onClick={() => { setDrawPaths([]); setCurrentPath(""); setProgress(0) }} className="w-full py-2 text-sm font-bold" style={{ color: MUTED, ...ff }}>
+              Clear and try again
+            </button>
+            {level === 1 && (
+              <div className="h-2 rounded-full" style={{ background: "#E0EEF8" }}>
+                <motion.div className="h-full rounded-full" animate={{ width: `${(progress/totalSteps)*100}%` }} style={{ background: BLUE }}/>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -2147,7 +2196,12 @@ function TracingLetterScreen({ letter, level, go }: { letter: string; level: 1|2
   )
 }
 
-function TracingFeedbackScreen({ letter, level, go }: { letter: string; level: 1|2|3; go: (s: Screen) => void }) {
+function TracingFeedbackScreen({ letter, level, go, onContinue }: {
+  letter: string
+  level: 1|2|3
+  go: (s: Screen) => void
+  onContinue: () => void
+}) {
   const isWord = letter.length > 1
   return (
     <div className="flex flex-col items-center justify-center h-full px-6 text-center" style={{ background: PEACH }}>
@@ -2167,8 +2221,8 @@ function TracingFeedbackScreen({ letter, level, go }: { letter: string; level: 1
         <p className="text-sm mb-8" style={{ color: MUTED, ...ff }}>Level {level} done. Get 3 stars to open the next step.</p>
 
         <div className="flex flex-col gap-3 w-full max-w-xs mx-auto">
-          <PrimaryBtn color={BLUE} onClick={() => go("tracingHome")}>
-            Back to Quest <ArrowRight size={18}/>
+          <PrimaryBtn color={BLUE} onClick={onContinue}>
+            {level < 3 ? `Go to Level ${level + 1}` : "Back to Quest"} <ArrowRight size={18}/>
           </PrimaryBtn>
           <OutlineBtn color={BLUE} onClick={() => go("tracingLetter")}>
             <RotateCcw size={16}/> Try Again
@@ -3109,6 +3163,14 @@ export default function App() {
     setStoryDraftTitle("")
     setStoryDraftPages([])
   }, [])
+  const continueTracing = useCallback(() => {
+    if (selectedTracingLevel < 3) {
+      setSelectedTracingLevel(level => (level + 1) as 1|2|3)
+      setScreen("tracingLetter")
+    } else {
+      setScreen("tracingHome")
+    }
+  }, [selectedTracingLevel])
 
   const allStories = [...userStories, ...CURATED_STORIES]
 
@@ -3140,7 +3202,7 @@ export default function App() {
       // Tracing
       case "tracingHome":    return <TracingHomeScreen go={go} setTracingLetter={setSelectedLetter} setTracingLevel={setSelectedTracingLevel}/>
       case "tracingLetter":  return <TracingLetterScreen letter={selectedLetter} level={selectedTracingLevel} go={go}/>
-      case "tracingFeedback":return <TracingFeedbackScreen letter={selectedLetter} level={selectedTracingLevel} go={go}/>
+      case "tracingFeedback":return <TracingFeedbackScreen letter={selectedLetter} level={selectedTracingLevel} go={go} onContinue={continueTracing}/>
       // Vocab
       case "vocabHome":     return <VocabHomeScreen go={go} setCurrentWord={setSelectedWord}/>
       case "vocabPractice": return <VocabPracticeScreen word={selectedWord} go={go}/>
