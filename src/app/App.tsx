@@ -9,7 +9,7 @@ import {
   Trophy, Flame, BarChart2, Lock, Play, Sparkles,
   Bookmark, Heart, Zap, Bell, User, Shield, HelpCircle,
   Type, WifiOff, Loader2, Trash2, Bot, Send, Camera,
-  ImagePlus, Upload,
+  ImagePlus, Upload, Eraser,
 } from "lucide-react"
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip,
@@ -203,6 +203,8 @@ const VOWEL_PRACTICE = [
 ]
 
 type TraceStroke = { d: string; label: [number, number] }
+type DrawStroke = { id: number; d: string }
+type TraceTool = "pen" | "eraser"
 
 function strokeArrowPosition(stroke: TraceStroke) {
   const match = stroke.d.match(/M\s*([\d.]+)\s+([\d.]+)\s*(?:[CL]\s*([\d.]+)\s+([\d.]+))?/)
@@ -1210,8 +1212,21 @@ function StoryWritingScreen({ go, theme, title, pages, onPagesChange }: {
       </div>
 
       <div className="px-5 mb-3">
-        <h2 className="text-xl font-bold" style={{ color: PURPLE, ...ffh }}>{title || "Write Your Story"}</h2>
-        <p className="text-xs" style={{ color: MUTED, ...ff }}>Page {currentPageNumber}. Tap an idea or write your own words.</p>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-bold" style={{ color: PURPLE, ...ffh }}>{title || "Write Your Story"}</h2>
+            <p className="text-xs" style={{ color: MUTED, ...ff }}>Page {currentPageNumber}. Tap an idea or write your own words.</p>
+          </div>
+          <button
+            onClick={() => setText("")}
+            disabled={!text}
+            className="w-11 h-11 rounded-2xl flex items-center justify-center shadow-sm disabled:opacity-40"
+            style={{ background: "white", color: MUTED }}
+            aria-label="Erase writing"
+          >
+            <Eraser size={19}/>
+          </button>
+        </div>
       </div>
 
       {/* AI suggestion chips */}
@@ -2029,9 +2044,11 @@ function TracingLetterScreen({ letter, level, go }: { letter: string; level: 1|2
   const [tracing, setTracing] = useState(false)
   const [progress, setProgress] = useState(0)
   const [drawing, setDrawing] = useState(false)
-  const [drawPaths, setDrawPaths] = useState<string[]>([])
+  const [drawPaths, setDrawPaths] = useState<DrawStroke[]>([])
   const [currentPath, setCurrentPath] = useState("")
   const currentPathRef = useRef("")
+  const strokeIdRef = useRef(0)
+  const [traceTool, setTraceTool] = useState<TraceTool>("pen")
   const isWord = letter.length > 1
   const isUpper = !isWord && letter === letter.toUpperCase()
   const strokes = !isWord ? (isUpper ? UPPER_TRACE_STROKES : LOWER_TRACE_STROKES)[letter.toUpperCase()] ?? [] : []
@@ -2058,7 +2075,17 @@ function TracingLetterScreen({ letter, level, go }: { letter: string; level: 1|2
     const rect = e.currentTarget.getBoundingClientRect()
     const x = ((e.clientX - rect.left) / rect.width) * 100
     const y = ((e.clientY - rect.top) / rect.height) * 100
-    return `${x.toFixed(1)} ${y.toFixed(1)}`
+    return { x, y, text: `${x.toFixed(1)} ${y.toFixed(1)}` }
+  }
+  const eraseNear = (x: number, y: number) => {
+    const radius = 8
+    setDrawPaths(paths => paths.filter(path => {
+      const points = [...path.d.matchAll(/[ML]\s+([\d.]+)\s+([\d.]+)/g)].map(match => ({
+        x: Number(match[1]),
+        y: Number(match[2]),
+      }))
+      return !points.some(point => Math.hypot(point.x - x, point.y - y) <= radius)
+    }))
   }
   const startDrawing = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (!tracing) return
@@ -2067,21 +2094,36 @@ function TracingLetterScreen({ letter, level, go }: { letter: string; level: 1|2
     } catch {
       // Some embedded mobile webviews are strict about pointer capture. Drawing still works without it.
     }
+    const point = pointerPoint(e)
+    if (traceTool === "eraser") {
+      eraseNear(point.x, point.y)
+      return
+    }
     setDrawing(true)
-    const path = `M ${pointerPoint(e)}`
+    const path = `M ${point.text}`
     currentPathRef.current = path
     setCurrentPath(path)
   }
   const moveDrawing = (e: ReactPointerEvent<HTMLDivElement>) => {
-    if (!drawing || !tracing) return
-    const nextPath = `${currentPathRef.current} L ${pointerPoint(e)}`
+    if (!tracing) return
+    const point = pointerPoint(e)
+    if (traceTool === "eraser") {
+      eraseNear(point.x, point.y)
+      return
+    }
+    if (!drawing) return
+    const nextPath = `${currentPathRef.current} L ${point.text}`
     currentPathRef.current = nextPath
     setCurrentPath(nextPath)
   }
   const endDrawing = () => {
     if (!drawing) return
     setDrawing(false)
-    if (currentPathRef.current) setDrawPaths(paths => [...paths, currentPathRef.current])
+    if (currentPathRef.current.includes(" L ")) {
+      strokeIdRef.current += 1
+      const nextStroke = { id: strokeIdRef.current, d: currentPathRef.current }
+      setDrawPaths(paths => [...paths, nextStroke])
+    }
     currentPathRef.current = ""
     setCurrentPath("")
   }
@@ -2116,6 +2158,25 @@ function TracingLetterScreen({ letter, level, go }: { letter: string; level: 1|2
       </div>
 
       <div className="flex-1 mx-5 flex flex-col items-center justify-center">
+        {tracing && (
+          <div className="flex gap-2 mb-3">
+            {[
+              { id: "pen" as const, label: "Draw", icon: PenLine },
+              { id: "eraser" as const, label: "Erase", icon: Eraser },
+            ].map(tool => {
+              const Icon = tool.icon
+              const active = traceTool === tool.id
+              return (
+                <button key={tool.id} onClick={() => { endDrawing(); setTraceTool(tool.id) }}
+                  className="h-11 px-4 rounded-2xl flex items-center gap-2 font-bold text-sm shadow-sm"
+                  style={{ background: active ? BLUE : "white", color: active ? "white" : MUTED, ...ff }}>
+                  <Icon size={18}/>
+                  {tool.label}
+                </button>
+              )
+            })}
+          </div>
+        )}
         <div
           className="w-full max-w-xs aspect-square rounded-3xl flex items-center justify-center relative shadow-sm overflow-hidden touch-none select-none"
           style={{ background: "white" }}
@@ -2180,9 +2241,10 @@ function TracingLetterScreen({ letter, level, go }: { letter: string; level: 1|2
               </g>
             ))}
 
-            {[...drawPaths, currentPath].filter(Boolean).map((path, i) => (
-              <path key={i} d={path} fill="none" stroke={PURPLE} strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.9"/>
+            {drawPaths.map(path => (
+              <path key={path.id} d={path.d} fill="none" stroke={PURPLE} strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.9"/>
             ))}
+            {currentPath && <path d={currentPath} fill="none" stroke={PURPLE} strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.9"/>}
           </svg>
 
           {level === 3 && drawPaths.length === 0 && !currentPath && (
@@ -2191,21 +2253,21 @@ function TracingLetterScreen({ letter, level, go }: { letter: string; level: 1|2
         </div>
 
         <p className="text-xs mt-3 text-center" style={{ color: MUTED, ...ff }}>
-          {!tracing ? (level === 3 ? "Tap START, then draw the letter." : "Tap START, then trace with your finger.") : drawPaths.length ? "Nice drawing. Tap Done when finished." : "Draw on the board with your finger."}
+          {!tracing ? (level === 3 ? "Tap START, then draw the letter." : "Tap START, then trace with your finger.") : traceTool === "eraser" ? "Rub over a line to erase it." : drawPaths.length ? "Nice drawing. Tap Done when finished." : "Draw on the board with your finger."}
         </p>
       </div>
 
       <div className="px-5 pb-6">
         {!tracing ? (
-          <PrimaryBtn color={BLUE} onClick={() => { setTracing(true); setProgress(0); setDrawPaths([]); setCurrentPath(""); currentPathRef.current = "" }}>
+          <PrimaryBtn color={BLUE} onClick={() => { setTracing(true); setProgress(0); setDrawPaths([]); setCurrentPath(""); currentPathRef.current = ""; setTraceTool("pen") }}>
             <PenLine size={18}/> Start
           </PrimaryBtn>
         ) : (
           <div className="flex flex-col gap-3">
-            <PrimaryBtn color={BLUE} disabled={drawPaths.length === 0 && !currentPath} onClick={() => go("tracingFeedback")}>
+            <PrimaryBtn color={BLUE} disabled={drawPaths.length === 0 && !currentPath} onClick={() => { endDrawing(); go("tracingFeedback") }}>
               Done <Check size={18}/>
             </PrimaryBtn>
-            <button onClick={() => { setDrawPaths([]); setCurrentPath(""); currentPathRef.current = ""; setProgress(0) }} className="w-full py-2 text-sm font-bold" style={{ color: MUTED, ...ff }}>
+            <button onClick={() => { setDrawPaths([]); setCurrentPath(""); currentPathRef.current = ""; setProgress(0); setTraceTool("pen") }} className="w-full py-2 text-sm font-bold" style={{ color: MUTED, ...ff }}>
               Clear and try again
             </button>
             {level === 1 && (
