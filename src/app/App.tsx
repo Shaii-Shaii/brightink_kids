@@ -1337,6 +1337,23 @@ function TracingHomeScreen({ go, setTracingLetter }: { go: (s: Screen) => void; 
       <div className="px-5 pt-6 pb-2">
         <h2 className="text-3xl font-bold" style={{ color: PURPLE, ...ffh }}>Letter Tracing ✏️</h2>
         <p className="text-sm mt-0.5 mb-3" style={{ color: MUTED, ...ff }}>Tap a letter to start practising!</p>
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          <button className="rounded-3xl p-4 text-left shadow-sm active:scale-[0.98] transition-all" style={{ background: `${BLUE}22`, border: `2px solid ${BLUE}30` }}>
+            <div className="w-11 h-11 rounded-2xl flex items-center justify-center mb-3" style={{ background: "white" }}>
+              <PenLine size={22} style={{ color: BLUE }}/>
+            </div>
+            <p className="font-bold text-base" style={{ color: PURPLE, ...ffh }}>Letter Tracing</p>
+            <p className="text-xs mt-1" style={{ color: MUTED, ...ff }}>Trace A-Z with stroke cues.</p>
+          </button>
+          <button onClick={() => go("vocabHome")} className="rounded-3xl p-4 text-left shadow-sm active:scale-[0.98] transition-all" style={{ background: `${PINK}18`, border: `2px solid ${PINK}30` }}>
+            <div className="w-11 h-11 rounded-2xl flex items-center justify-center mb-3" style={{ background: "white" }}>
+              <Mic size={22} style={{ color: PINK }}/>
+            </div>
+            <p className="font-bold text-base" style={{ color: PURPLE, ...ffh }}>Vocabulary</p>
+            <p className="text-xs mt-1" style={{ color: MUTED, ...ff }}>Speak words and get feedback.</p>
+          </button>
+        </div>
+        <p className="text-sm font-bold mb-2" style={{ color: MUTED, ...ff }}>Choose a letter</p>
         <div className="flex gap-2">
           {(["upper","lower"] as const).map(m => (
             <button key={m} onClick={() => setMode(m)}
