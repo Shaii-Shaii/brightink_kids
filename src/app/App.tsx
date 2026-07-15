@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react"
-import type { ComponentType, CSSProperties, PointerEvent as ReactPointerEvent } from "react"
+import type { ComponentType, CSSProperties, Dispatch, PointerEvent as ReactPointerEvent, SetStateAction } from "react"
 import { createPortal } from "react-dom"
 import { motion } from "motion/react"
 import {
@@ -205,6 +205,7 @@ const VOWEL_PRACTICE = [
 type TraceStroke = { d: string; label: [number, number] }
 type DrawStroke = { id: number; d: string }
 type TraceTool = "pen" | "eraser"
+type VocabResult = { correct: boolean; transcript: string; target: string; reason?: string }
 
 function parseDrawPoints(paths: Array<DrawStroke | string>) {
   return paths.flatMap(path => {
@@ -1800,16 +1801,20 @@ function LegacyTracingHomeScreen({ go, setTracingLetter }: { go: (s: Screen) => 
   )
 }
 
-function TracingHomeScreen({ go, setTracingLetter, setTracingLevel }: {
+function TracingHomeScreen({ go, setTracingLetter, setTracingLevel, letterProgress, wordProgress, availableStars, setAvailableStars, manualUnlocks, setManualUnlocks }: {
   go: (s: Screen) => void
   setTracingLetter: (l: string) => void
   setTracingLevel: (level: 1|2|3) => void
+  letterProgress: Record<string, number>
+  wordProgress: Record<string, number>
+  availableStars: number
+  setAvailableStars: Dispatch<SetStateAction<number>>
+  manualUnlocks: string[]
+  setManualUnlocks: Dispatch<SetStateAction<string[]>>
 }) {
   const [mode, setMode] = useState<"letters"|"words">("letters")
   const [caseMode, setCaseMode] = useState<"upper"|"lower">("upper")
   const [topic, setTopic] = useState(WORD_TRACING_TOPICS[0].id)
-  const [availableStars, setAvailableStars] = useState(3)
-  const [manualUnlocks, setManualUnlocks] = useState<Set<string>>(() => new Set())
   const [unlockTarget, setUnlockTarget] = useState<{
     key: string
     item: string
@@ -1827,7 +1832,7 @@ function TracingHomeScreen({ go, setTracingLetter, setTracingLevel }: {
   const confirmUnlock = () => {
     if (!unlockTarget || availableStars < 3) return
     setAvailableStars(stars => stars - 3)
-    setManualUnlocks(prev => new Set(prev).add(unlockTarget.key))
+    setManualUnlocks(prev => prev.includes(unlockTarget.key) ? prev : [...prev, unlockTarget.key])
     startTrace(unlockTarget.item, unlockTarget.stars)
     setUnlockTarget(null)
   }
@@ -1896,9 +1901,9 @@ function TracingHomeScreen({ go, setTracingLetter, setTracingLevel }: {
 
             <div className="grid grid-cols-5 gap-2.5">
               {ALPHABET.map((letter, index) => {
-                const prog = TRACING_PROGRESS[letter] ?? 0
+                const prog = letterProgress[letter] ?? 0
                 const key = `letter:${letter}`
-                const unlocked = index === 0 || (TRACING_PROGRESS[ALPHABET[index - 1]] ?? 0) >= 3 || manualUnlocks.has(key)
+                const unlocked = index === 0 || (letterProgress[ALPHABET[index - 1]] ?? 0) >= 3 || manualUnlocks.includes(key)
                 const display = caseMode === "upper" ? letter : letter.toLowerCase()
                 return (
                   <button key={letter} onClick={() => unlocked ? startTrace(display, prog) : askUnlock({ key, item: display, stars: prog, label: `Letter ${display}`, color: BLUE })}
@@ -1932,10 +1937,10 @@ function TracingHomeScreen({ go, setTracingLetter, setTracingLevel }: {
             <p className="text-sm font-bold mb-2" style={{ color: MUTED, ...ff }}>Trace a word</p>
             <div className="grid grid-cols-2 gap-3">
               {currentTopic.words.map((word, index) => {
-                const prog = WORD_TRACING_PROGRESS[word] ?? 0
+                const prog = wordProgress[word] ?? 0
                 const prevWord = currentTopic.words[index - 1]
                 const key = `word:${word}`
-                const unlocked = index === 0 || (WORD_TRACING_PROGRESS[prevWord] ?? 0) >= 3 || manualUnlocks.has(key)
+                const unlocked = index === 0 || (wordProgress[prevWord] ?? 0) >= 3 || manualUnlocks.includes(key)
                 return (
                   <button key={word} onClick={() => unlocked ? startTrace(word, prog) : askUnlock({ key, item: word, stars: prog, label: `"${word}"`, color: currentTopic.color })}
                     className="relative rounded-3xl p-5 min-h-28 text-left shadow-sm active:scale-[0.98]"
@@ -2067,7 +2072,12 @@ function LegacyTracingLetterScreen({ letter, go }: { letter: string; go: (s: Scr
   )
 }
 
-function TracingLetterScreen({ letter, level, go }: { letter: string; level: 1|2|3; go: (s: Screen) => void }) {
+function TracingLetterScreen({ letter, level, go, onValidTrace }: {
+  letter: string
+  level: 1|2|3
+  go: (s: Screen) => void
+  onValidTrace: (item: string, level: 1|2|3) => void
+}) {
   const [tracing, setTracing] = useState(false)
   const [progress, setProgress] = useState(0)
   const [drawing, setDrawing] = useState(false)
@@ -2257,6 +2267,7 @@ function TracingLetterScreen({ letter, level, go }: { letter: string; level: 1|2
       setValidationError(true)
       return
     }
+    onValidTrace(letter, level)
     go("tracingFeedback")
   }
   const restartTracing = () => {
@@ -2523,9 +2534,14 @@ function LegacyVocabHomeScreen({ go, setCurrentWord }: { go: (s: Screen) => void
   )
 }
 
-function VocabHomeScreen({ go, setCurrentWord }: { go: (s: Screen) => void; setCurrentWord: (w: typeof VOCAB_WORDS[0]) => void }) {
-  const vowelStars = VOWEL_PRACTICE.reduce((sum, v) => sum + Math.min(v.stars, 3), 0)
-  const vowelsDone = VOWEL_PRACTICE.every(v => v.stars >= 3)
+function VocabHomeScreen({ go, setCurrentWord, vowelProgress, vocabProgress }: {
+  go: (s: Screen) => void
+  setCurrentWord: (w: typeof VOCAB_WORDS[0]) => void
+  vowelProgress: Record<string, number>
+  vocabProgress: Record<string, number>
+}) {
+  const vowelStars = VOWEL_PRACTICE.reduce((sum, v) => sum + Math.min(vowelProgress[v.vowel] ?? 0, 3), 0)
+  const vowelsDone = VOWEL_PRACTICE.every(v => (vowelProgress[v.vowel] ?? 0) >= 3)
 
   return (
     <div className="flex flex-col h-full" style={{ background: PEACH }}>
@@ -2555,7 +2571,8 @@ function VocabHomeScreen({ go, setCurrentWord }: { go: (s: Screen) => void; setC
 
           <div className="grid grid-cols-5 gap-2">
             {VOWEL_PRACTICE.map((v, index) => {
-              const unlocked = index === 0 || VOWEL_PRACTICE[index - 1].stars >= 3
+              const stars = vowelProgress[v.vowel] ?? 0
+              const unlocked = index === 0 || (vowelProgress[VOWEL_PRACTICE[index - 1].vowel] ?? 0) >= 3
               return (
                 <button key={v.vowel} disabled={!unlocked} onClick={() => {
                   setCurrentWord({ word: v.vowel, phonetic: v.sound, emoji: v.emoji, hint: "Say the vowel sound." })
@@ -2565,7 +2582,7 @@ function VocabHomeScreen({ go, setCurrentWord }: { go: (s: Screen) => void; setC
                   style={{ background: unlocked ? `${PINK}12` : "#F1E8F0", opacity: unlocked ? 1 : 0.72 }}>
                   {!unlocked && <Lock size={13} className="absolute top-1.5 right-1.5" style={{ color: MUTED }}/>}
                   <span className="text-2xl font-bold" style={{ color: unlocked ? PURPLE : MUTED, ...ffh }}>{v.vowel}</span>
-                  <div className="flex gap-0.5">{[0,1,2].map(i=><Star key={i} size={9} fill={i<v.stars ? YELLOW : "none"} stroke={i<v.stars ? YELLOW : "#D0C8D4"}/>)}</div>
+                  <div className="flex gap-0.5">{[0,1,2].map(i=><Star key={i} size={9} fill={i<stars ? YELLOW : "none"} stroke={i<stars ? YELLOW : "#D0C8D4"}/>)}</div>
                 </button>
               )
             })}
@@ -2591,7 +2608,7 @@ function VocabHomeScreen({ go, setCurrentWord }: { go: (s: Screen) => void; setC
                 <span style={{ fontSize: 28 }}>{w.emoji}</span>
                 <div className="flex-1 text-left min-w-0">
                   <p className="font-bold truncate" style={{ color: vowelsDone ? PURPLE : MUTED, ...ffh }}>{w.word}</p>
-                  <p className="text-xs truncate" style={{ color: MUTED, ...ff }}>{index + 1} star to win</p>
+                  <p className="text-xs truncate" style={{ color: MUTED, ...ff }}>{Math.min(vocabProgress[w.word] ?? 0, 3)}/3 voice stars</p>
                 </div>
               </button>
             ))}
@@ -2616,19 +2633,72 @@ function VocabHomeScreen({ go, setCurrentWord }: { go: (s: Screen) => void; setC
   )
 }
 
-function VocabPracticeScreen({ word, go }: { word: typeof VOCAB_WORDS[0]|null; go: (s: Screen) => void }) {
+function VocabPracticeScreen({ word, go, onResult }: {
+  word: typeof VOCAB_WORDS[0]|null
+  go: (s: Screen) => void
+  onResult: (result: VocabResult) => void
+}) {
   const w = word ?? VOCAB_WORDS[0]
   const [listening, setListening] = useState(false)
   const [done, setDone] = useState(false)
+  const [message, setMessage] = useState("")
   const timerRef = useRef<ReturnType<typeof setTimeout>|null>(null)
+  const recognitionRef = useRef<any>(null)
+
+  const normalizeSpeech = (value: string) => value.toLowerCase().replace(/[^a-z]/g, "")
+  const checkSpeech = (transcript: string) => {
+    const said = normalizeSpeech(transcript)
+    const target = normalizeSpeech(w.word)
+    if (!target || !said) return false
+    if (target.length === 1) return said === target || said.startsWith(target)
+    return said.includes(target)
+  }
 
   const handleMic = () => {
     if (listening || done) return
+    setMessage("")
     setListening(true)
-    timerRef.current = setTimeout(() => { setListening(false); setDone(true); setTimeout(() => go("vocabFeedback"), 400) }, 2000)
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+    if (!SpeechRecognition) {
+      setListening(false)
+      onResult({ correct: false, transcript: "", target: w.word, reason: "Speech check is not available on this browser." })
+      setMessage("I could not hear you here. Try Chrome or the mobile app.")
+      timerRef.current = setTimeout(() => go("vocabFeedback"), 900)
+      return
+    }
+
+    const recognition = new SpeechRecognition()
+    recognitionRef.current = recognition
+    recognition.lang = "en-US"
+    recognition.interimResults = false
+    recognition.maxAlternatives = 3
+    recognition.continuous = false
+
+    recognition.onresult = (event: any) => {
+      const alternatives = Array.from(event.results?.[0] ?? []) as Array<{ transcript?: string }>
+      const transcript = alternatives.map(alt => alt.transcript ?? "").find(Boolean) ?? ""
+      const correct = alternatives.some(alt => checkSpeech(alt.transcript ?? "")) || checkSpeech(transcript)
+      onResult({ correct, transcript, target: w.word })
+      setListening(false)
+      setDone(true)
+      timerRef.current = setTimeout(() => go("vocabFeedback"), 450)
+    }
+
+    recognition.onerror = () => {
+      onResult({ correct: false, transcript: "", target: w.word, reason: "I could not hear the word clearly." })
+      setListening(false)
+      setMessage("I could not hear it clearly. Try again slowly.")
+      timerRef.current = setTimeout(() => go("vocabFeedback"), 900)
+    }
+
+    recognition.onend = () => setListening(false)
+    recognition.start()
   }
 
-  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current) }, [])
+  useEffect(() => () => {
+    if (timerRef.current) clearTimeout(timerRef.current)
+    recognitionRef.current?.abort?.()
+  }, [])
 
   return (
     <div className="flex flex-col h-full" style={{ background: PEACH }}>
@@ -2648,9 +2718,13 @@ function VocabPracticeScreen({ word, go }: { word: typeof VOCAB_WORDS[0]|null; g
           </button>
         </div>
 
-        <p className="text-base font-bold mb-5" style={{ color: PURPLE, ...ff }}>
+        <p className="text-base font-bold mb-5 text-center" style={{ color: PURPLE, ...ff }}>
           {listening ? "Listening… say the word!" : done ? "Got it! ✓" : "Tap the mic and say the word!"}
         </p>
+
+        {message && (
+          <p className="text-xs text-center mb-3 -mt-3" style={{ color: PINK, ...ff }}>{message}</p>
+        )}
 
         {/* Mic button */}
         <motion.button onClick={handleMic}
@@ -2674,10 +2748,14 @@ function VocabPracticeScreen({ word, go }: { word: typeof VOCAB_WORDS[0]|null; g
   )
 }
 
-function VocabFeedbackScreen({ word, go }: { word: typeof VOCAB_WORDS[0]|null; go: (s: Screen) => void }) {
+function VocabFeedbackScreen({ word, go, result }: {
+  word: typeof VOCAB_WORDS[0]|null
+  go: (s: Screen) => void
+  result: VocabResult | null
+}) {
   const w = word ?? VOCAB_WORDS[0]
-  const [correct] = useState(Math.random() > 0.3)
-  const nextWord = VOCAB_WORDS[Math.floor(Math.random() * VOCAB_WORDS.length)]
+  const correct = result?.correct ?? false
+  const transcript = result?.transcript?.trim()
   return (
     <div className="flex flex-col items-center justify-center h-full px-6 text-center" style={{ background: PEACH }}>
       <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 180, damping: 14 }}
@@ -2691,6 +2769,8 @@ function VocabFeedbackScreen({ word, go }: { word: typeof VOCAB_WORDS[0]|null; g
         <p className="text-sm mb-1" style={{ color: MUTED, ...ff }}>
           {correct ? `You said "${w.word}" perfectly!` : `Almost! Try saying "${w.word}" again.`}
         </p>
+        {transcript && <p className="text-xs mb-1" style={{ color: MUTED, ...ff }}>I heard: "{transcript}"</p>}
+        {result?.reason && <p className="text-xs mb-1" style={{ color: PINK, ...ff }}>{result.reason}</p>}
         <p className="text-xs mb-8" style={{ color: BLUE, ...ff }}>{w.phonetic}</p>
 
         <div className="flex flex-col gap-3 w-full max-w-xs mx-auto">
@@ -3394,6 +3474,15 @@ export default function App() {
   const [selectedLetter, setSelectedLetter] = useState("A")
   const [selectedTracingLevel, setSelectedTracingLevel] = useState<1|2|3>(1)
   const [selectedWord, setSelectedWord] = useState<typeof VOCAB_WORDS[0]|null>(null)
+  const [practiceStars, setPracticeStars] = useState(3)
+  const [manualPracticeUnlocks, setManualPracticeUnlocks] = useState<string[]>([])
+  const [letterProgress, setLetterProgress] = useState<Record<string, number>>(() => ({ ...TRACING_PROGRESS }))
+  const [wordTracingProgress, setWordTracingProgress] = useState<Record<string, number>>(() => ({ ...WORD_TRACING_PROGRESS }))
+  const [vowelProgress, setVowelProgress] = useState<Record<string, number>>(() =>
+    Object.fromEntries(VOWEL_PRACTICE.map(v => [v.vowel, v.stars]))
+  )
+  const [vocabProgress, setVocabProgress] = useState<Record<string, number>>({})
+  const [vocabResult, setVocabResult] = useState<VocabResult | null>(null)
   const [activityScores, setActivityScores] = useState<boolean[]>([])
 
   const go = useCallback((s: Screen) => setScreen(s), [])
@@ -3414,6 +3503,33 @@ export default function App() {
       setScreen("tracingHome")
     }
   }, [selectedTracingLevel])
+  const markTracingLevelComplete = useCallback((item: string, level: 1|2|3) => {
+    const isWordTrace = item.length > 1
+    const key = isWordTrace ? item.toLowerCase() : item.toUpperCase()
+    if (isWordTrace) {
+      if ((wordTracingProgress[key] ?? 0) >= level) return
+      setWordTracingProgress(prev => ({ ...prev, [key]: Math.max(prev[key] ?? 0, level) }))
+    } else {
+      if ((letterProgress[key] ?? 0) >= level) return
+      setLetterProgress(prev => ({ ...prev, [key]: Math.max(prev[key] ?? 0, level) }))
+    }
+    setPracticeStars(stars => stars + 1)
+  }, [letterProgress, wordTracingProgress])
+  const handleVocabResult = useCallback((result: VocabResult) => {
+    setVocabResult(result)
+    if (!result.correct) return
+    const target = result.target
+    const upperTarget = target.toUpperCase()
+    const isVowel = target.length === 1 && "AEIOU".includes(upperTarget)
+    if (isVowel) {
+      if ((vowelProgress[upperTarget] ?? 0) >= 3) return
+      setVowelProgress(prev => ({ ...prev, [upperTarget]: Math.min((prev[upperTarget] ?? 0) + 1, 3) }))
+    } else {
+      if ((vocabProgress[target] ?? 0) >= 3) return
+      setVocabProgress(prev => ({ ...prev, [target]: Math.min((prev[target] ?? 0) + 1, 3) }))
+    }
+    setPracticeStars(stars => stars + 1)
+  }, [vocabProgress, vowelProgress])
 
   const allStories = [...userStories, ...CURATED_STORIES]
 
@@ -3443,13 +3559,13 @@ export default function App() {
       case "storyDetail":  return <StoryDetailScreen story={selectedStory} go={go}/>
       case "storyReading": return <StoryReadingScreen story={selectedStory} go={go}/>
       // Tracing
-      case "tracingHome":    return <TracingHomeScreen go={go} setTracingLetter={setSelectedLetter} setTracingLevel={setSelectedTracingLevel}/>
-      case "tracingLetter":  return <TracingLetterScreen letter={selectedLetter} level={selectedTracingLevel} go={go}/>
+      case "tracingHome":    return <TracingHomeScreen go={go} setTracingLetter={setSelectedLetter} setTracingLevel={setSelectedTracingLevel} letterProgress={letterProgress} wordProgress={wordTracingProgress} availableStars={practiceStars} setAvailableStars={setPracticeStars} manualUnlocks={manualPracticeUnlocks} setManualUnlocks={setManualPracticeUnlocks}/>
+      case "tracingLetter":  return <TracingLetterScreen letter={selectedLetter} level={selectedTracingLevel} go={go} onValidTrace={markTracingLevelComplete}/>
       case "tracingFeedback":return <TracingFeedbackScreen letter={selectedLetter} level={selectedTracingLevel} go={go} onContinue={continueTracing}/>
       // Vocab
-      case "vocabHome":     return <VocabHomeScreen go={go} setCurrentWord={setSelectedWord}/>
-      case "vocabPractice": return <VocabPracticeScreen word={selectedWord} go={go}/>
-      case "vocabFeedback": return <VocabFeedbackScreen word={selectedWord} go={go}/>
+      case "vocabHome":     return <VocabHomeScreen go={go} setCurrentWord={setSelectedWord} vowelProgress={vowelProgress} vocabProgress={vocabProgress}/>
+      case "vocabPractice": return <VocabPracticeScreen word={selectedWord} go={go} onResult={handleVocabResult}/>
+      case "vocabFeedback": return <VocabFeedbackScreen word={selectedWord} go={go} result={vocabResult}/>
       // Activities
       case "activityIntro":   return <ActivityIntroScreen story={selectedStory} go={go}/>
       case "activityScreen":  return <ActivityScreen story={selectedStory} go={go} onComplete={setActivityScores}/>
