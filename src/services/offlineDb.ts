@@ -1,5 +1,5 @@
 import Dexie, { type EntityTable } from "dexie"
-import type { OfflineQueueItem } from "../state/useAppStore"
+import type { OfflineQueueItem } from "../store/useAppStore"
 
 export interface OfflineStory {
   id: string

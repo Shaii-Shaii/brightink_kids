@@ -1,5 +1,5 @@
 {
-  "name": "@figma/my-make-file",
+  "name": "brightink-kids",
   "private": true,
   "version": "0.0.1",
   "type": "module",
@@ -83,8 +83,10 @@
   "devDependencies": {
     "@capacitor/cli": "^8.4.2",
     "@tailwindcss/vite": "4.1.12",
+    "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "4.7.0",
     "tailwindcss": "4.1.12",
+    "typescript": "^7.0.2",
     "vite": "6.3.5"
   },
   "pnpm": {

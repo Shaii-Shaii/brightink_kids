@@ -1,0 +1,10 @@
+export { SettingsHomeScreen } from './SettingsHomeScreen'
+export { AccountSettingsScreen } from './AccountSettingsScreen'
+export { ChildProfileSettingsScreen } from './ChildProfileSettingsScreen'
+export { ManageProfilesScreen } from './ManageProfilesScreen'
+export { NotificationSettingsScreen } from './NotificationSettingsScreen'
+export { SoundVoiceSettingsScreen } from './SoundVoiceSettingsScreen'
+export { AccessibilitySettingsScreen } from './AccessibilitySettingsScreen'
+export { PrivacyDataSettingsScreen } from './PrivacyDataSettingsScreen'
+export { AboutHelpScreen } from './AboutHelpScreen'
+
